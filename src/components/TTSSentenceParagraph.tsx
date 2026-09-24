@@ -222,7 +222,7 @@ export const TTSSentenceParagraph = React.memo(function TTSSentenceParagraph({
                     background = '#FFFF00';
                     color = '#000000';
                   } else if (isTokenOnActiveLine) {
-                    background = '#A8D1FF';
+                    background = '#B2D6F3';
                     color = '#000000';
                   }
 
@@ -239,8 +239,8 @@ export const TTSSentenceParagraph = React.memo(function TTSSentenceParagraph({
                       style={{
                         backgroundColor: background,
                         color: color,
-                        paddingTop: (isTokenOnActiveLine || isWordHighlighted) ? '2.5px' : '0px',
-                        paddingBottom: (isTokenOnActiveLine || isWordHighlighted) ? '2.5px' : '0px',
+                        paddingTop: '0px',
+                        paddingBottom: '0px',
                         paddingLeft: '0px',
                         paddingRight: '0px',
                         margin: '0px',
@@ -260,10 +260,10 @@ export const TTSSentenceParagraph = React.memo(function TTSSentenceParagraph({
                   data-token-key={`${sIdx}-space`}
                   className="inline select-text box-decoration-clone"
                   style={{
-                    backgroundColor: (showSentenceRing && activeLineKeySet.has(`${sIdx}-space`)) ? '#A8D1FF' : 'transparent',
+                    backgroundColor: (showSentenceRing && activeLineKeySet.has(`${sIdx}-space`)) ? '#B2D6F3' : 'transparent',
                     color: (showSentenceRing && activeLineKeySet.has(`${sIdx}-space`)) ? '#000000' : 'inherit',
-                    paddingTop: (showSentenceRing && activeLineKeySet.has(`${sIdx}-space`)) ? '2.5px' : '0px',
-                    paddingBottom: (showSentenceRing && activeLineKeySet.has(`${sIdx}-space`)) ? '2.5px' : '0px',
+                    paddingTop: '0px',
+                    paddingBottom: '0px',
                     paddingLeft: '0px',
                     paddingRight: '0px',
                     margin: '0px',
@@ -289,8 +289,8 @@ export const TTSSentenceParagraph = React.memo(function TTSSentenceParagraph({
               onPointerUp={handlePointerUp}
               className={`inline select-text ${onSentenceClick ? 'hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer' : ''}`}
               style={{
-                paddingTop: '2px',
-                paddingBottom: '2px',
+                paddingTop: '0px',
+                paddingBottom: '0px',
                 paddingLeft: '0',
                 paddingRight: '0',
                 margin: '0',

@@ -627,7 +627,7 @@ export function EdgeVoiceOptionsModal({
                   {settings.highlightMode === 'both' && (
                     <span 
                       className="rounded-[3px] px-1 py-[2px] mx-0.5 inline box-decoration-clone"
-                      style={{ backgroundColor: '#A8D1FF', color: '#000000' }}
+                      style={{ backgroundColor: '#B2D6F3', color: '#000000' }}
                     >
                       The active sentence is highlighted, and the{' '}
                       <span 
@@ -642,7 +642,7 @@ export function EdgeVoiceOptionsModal({
                   {settings.highlightMode === 'sentence' && (
                     <span 
                       className="rounded-[3px] px-1 py-[2px] mx-0.5 inline box-decoration-clone"
-                      style={{ backgroundColor: '#A8D1FF', color: '#000000' }}
+                      style={{ backgroundColor: '#B2D6F3', color: '#000000' }}
                     >
                       The active sentence has an Edge light sky blue highlight with crisp black text.
                     </span>
