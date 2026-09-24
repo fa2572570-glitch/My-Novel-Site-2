@@ -1,0 +1,6 @@
+{
+  "name": "Novel Chapter Reader",
+  "description": "A Kindle-like distraction-free web reader optimized for Microsoft Edge Read Aloud. Supports copying/pasting chapters, automated fetching between URLs, custom font/spacing sizes, and local progress auto-saving.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
