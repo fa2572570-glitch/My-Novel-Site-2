@@ -36,7 +36,8 @@ import {
   ArrowRight,
   ArrowUp,
   ArrowDown,
-  Wand2
+  Wand2,
+  History
 } from 'lucide-react';
 import { TerminologyRule, IgnoreTerm, LineCleanerRule } from './types/terminology';
 import { applyTerminology, getDefaultTerminologyRules, getDefaultIgnoreTerms } from './utils/terminology';
@@ -386,9 +387,62 @@ export default function App() {
   const [searchMode, setSearchMode] = useState<'chapters' | 'text'>('chapters');
   const [highlightedParagraph, setHighlightedParagraph] = useState<{ chapterId: string; paragraphIndex: number } | null>(null);
   const [isDistractionFree, setIsDistractionFree] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(() => {
+    if (typeof document !== 'undefined') {
+      return Boolean(document.fullscreenElement || (document as any).webkitFullscreenElement);
+    }
+    return false;
+  });
   const [isReadingSettingsOpen, setIsReadingSettingsOpen] = useState(false);
   const [isQuickNavOpen, setIsQuickNavOpen] = useState(false);
   const [quickNavSearch, setQuickNavSearch] = useState('');
+
+  // Recently visited / reading history tracking (last 8 chapters)
+  const [readingHistory, setReadingHistory] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('novel_reading_history');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (chapters.length === 0) return;
+    const activeChap = chapters[currentChapterIndex];
+    if (!activeChap) return;
+    setReadingHistory(prev => {
+      const filtered = prev.filter(id => id !== activeChap.id);
+      const next = [activeChap.id, ...filtered].slice(0, 8);
+      try {
+        localStorage.setItem('novel_reading_history', JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }, [currentChapterIndex, chapters]);
+
+  const recentChapters = useMemo(() => {
+    return readingHistory
+      .map(id => chapters.find(c => c.id === id))
+      .filter((c): c is Chapter => Boolean(c));
+  }, [readingHistory, chapters]);
+
+  // Auto-scroll Quick Chapter Navigator to currently reading chapter on open
+  useEffect(() => {
+    if (isQuickNavOpen) {
+      const activeChap = chapters[currentChapterIndex];
+      if (!activeChap) return;
+      const timer = setTimeout(() => {
+        const targetEl = document.getElementById(`quick-nav-item-${activeChap.id}`);
+        if (targetEl) {
+          targetEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+      }, 75);
+      return () => clearTimeout(timer);
+    }
+  }, [isQuickNavOpen, currentChapterIndex, chapters]);
 
   // --- TERMINOLOGY MANAGER STATE ---
   const [isTerminologyEnabled, setIsTerminologyEnabled] = useState<boolean>(() => {
@@ -543,6 +597,144 @@ export default function App() {
     }, 1000); // 1 second window to tap 3 times
   };
 
+  // --- NATIVE FULLSCREEN (OPTION 1) STATE & SYNC ---
+  const wasFullscreenRef = useRef<boolean>(false);
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFs = Boolean(
+        document.fullscreenElement || 
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+      setIsFullscreen(isFs);
+      // Only when transitioning from fullscreen (true) to normal (false) do we restore header bar
+      if (wasFullscreenRef.current && !isFs) {
+        setIsDistractionFree(false);
+      }
+      wasFullscreenRef.current = isFs;
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  const enterNativeFullscreen = useCallback(async () => {
+    try {
+      const isCurrentlyFs = Boolean(
+        document.fullscreenElement || 
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+
+      if (!isCurrentlyFs) {
+        const elem = document.documentElement as any;
+        if (elem.requestFullscreen) {
+          try {
+            await elem.requestFullscreen({ navigationUI: 'hide' });
+          } catch {
+            await elem.requestFullscreen();
+          }
+        } else if (elem.webkitRequestFullscreen) {
+          await elem.webkitRequestFullscreen();
+        } else if (elem.mozRequestFullScreen) {
+          await elem.mozRequestFullScreen();
+        } else if (elem.msRequestFullscreen) {
+          await elem.msRequestFullscreen();
+        }
+      }
+    } catch (err) {
+      console.warn('Native fullscreen enter failed:', err);
+    }
+  }, []);
+
+  const exitNativeFullscreen = useCallback(async () => {
+    try {
+      const isCurrentlyFs = Boolean(
+        document.fullscreenElement || 
+        (document as any).webkitFullscreenElement ||
+        (document as any).mozFullScreenElement ||
+        (document as any).msFullscreenElement
+      );
+
+      if (isCurrentlyFs) {
+        const doc = document as any;
+        if (doc.exitFullscreen) {
+          await doc.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.mozCancelFullScreen) {
+          await doc.mozCancelFullScreen();
+        } else if (doc.msExitFullscreen) {
+          await doc.msExitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.warn('Native fullscreen exit failed:', err);
+    }
+  }, []);
+
+  const handleToggleFullscreen = useCallback(async () => {
+    const isCurrentlyFs = Boolean(
+      document.fullscreenElement || 
+      (document as any).webkitFullscreenElement ||
+      (document as any).mozFullScreenElement ||
+      (document as any).msFullscreenElement
+    );
+    if (!isCurrentlyFs) {
+      await enterNativeFullscreen();
+    } else {
+      await exitNativeFullscreen();
+    }
+  }, [enterNativeFullscreen, exitNativeFullscreen]);
+
+  // Consolidated & debounced toggle for both desktop double-click and mobile double-tap
+  const lastDoubleTapActionRef = useRef<number>(0);
+  const toggleDistractionFreeAndFullscreen = useCallback(() => {
+    const now = Date.now();
+    // Guard against duplicate execution when touch generates both touchend & synthetic dblclick
+    if (now - lastDoubleTapActionRef.current < 500) {
+      return;
+    }
+    lastDoubleTapActionRef.current = now;
+
+    setIsDistractionFree(prev => {
+      const next = !prev;
+      if (next) {
+        enterNativeFullscreen();
+      } else {
+        exitNativeFullscreen();
+      }
+      return next;
+    });
+  }, [enterNativeFullscreen, exitNativeFullscreen]);
+
+  // Touch tracking for mobile double-tap to toggle fullscreen & header bar
+  const lastTouchTimeRef = useRef<number>(0);
+  const handleCanvasTouchEnd = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('textarea')) {
+      return;
+    }
+    const now = Date.now();
+    if (now - lastTouchTimeRef.current < 80) {
+      lastTouchTimeRef.current = 0;
+      toggleDistractionFreeAndFullscreen();
+    } else {
+      lastTouchTimeRef.current = now;
+    }
+  };
+
   // --- READING CONTROLS STATE ---
   const [theme, setTheme] = useState<'dark' | 'light' | 'sepia' | 'custom'>(() => {
     const saved = localStorage.getItem('novel_theme');
@@ -693,12 +885,37 @@ export default function App() {
   const [framePadding, setFramePadding] = useState<'compact' | 'standard' | 'relaxed'>(() => {
     return (localStorage.getItem('novel_frame_padding') as any) || (localStorage.getItem('novel_default_profile_frame_padding') as any) || 'standard';
   });
-  const [frameWidth, setFrameWidth] = useState<number>(() => {
+  const [portraitFrameWidth, setPortraitFrameWidth] = useState<number>(() => {
+    const savedPortrait = localStorage.getItem('novel_portrait_frame_width');
+    if (savedPortrait !== null) return parseInt(savedPortrait, 10);
     const saved = localStorage.getItem('novel_frame_width');
     if (saved !== null) return parseInt(saved, 10);
     const def = localStorage.getItem('novel_default_profile_frame_width');
-    return def !== null ? parseInt(def, 10) : 70;
+    return def !== null ? parseInt(def, 10) : 105;
   });
+  const [frameWidth, setFrameWidth] = useState<number>(() => {
+    const isL = typeof window !== 'undefined' && (window.matchMedia('(orientation: landscape)').matches || window.innerWidth > window.innerHeight);
+    if (isL) {
+      return 100;
+    }
+    const savedPortrait = localStorage.getItem('novel_portrait_frame_width');
+    if (savedPortrait !== null) return parseInt(savedPortrait, 10);
+    const saved = localStorage.getItem('novel_frame_width');
+    if (saved !== null) return parseInt(saved, 10);
+    const def = localStorage.getItem('novel_default_profile_frame_width');
+    return def !== null ? parseInt(def, 10) : 105;
+  });
+  const portraitFrameWidthRef = useRef<number>(portraitFrameWidth);
+  portraitFrameWidthRef.current = portraitFrameWidth;
+
+  const handleUpdateFrameWidth = (w: number) => {
+    setFrameWidth(w);
+    if (!isLandscape) {
+      setPortraitFrameWidth(w);
+      portraitFrameWidthRef.current = w;
+      localStorage.setItem('novel_portrait_frame_width', w.toString());
+    }
+  };
 
   // --- ADD / PASTE CHAPTER FORMS ---
   const [newNumber, setNewNumber] = useState('');
@@ -818,7 +1035,7 @@ export default function App() {
   };
 
   const handleToggleReadingMode = () => {
-    ttsTogglePlayPause();
+    setListenMode(prev => !prev);
   };
 
 
@@ -909,6 +1126,11 @@ export default function App() {
     withScrollPreservation(() => {
       setIsDistractionFree(df);
     });
+    if (df) {
+      enterNativeFullscreen();
+    } else {
+      exitNativeFullscreen();
+    }
   };
 
   const handleSetReadingSettingsOpen = (open: boolean) => {
@@ -1002,22 +1224,49 @@ export default function App() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const mediaQuery = window.matchMedia('(orientation: landscape)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      setIsLandscape(e.matches);
+    const handleOrientationChange = () => {
+      const isL = mediaQuery.matches || window.innerWidth > window.innerHeight;
+      setIsLandscape(isL);
     };
     if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener('change', handleChange);
+      mediaQuery.addEventListener('change', handleOrientationChange);
     } else {
-      mediaQuery.addListener(handleChange);
+      mediaQuery.addListener(handleOrientationChange);
     }
+    window.addEventListener('resize', handleOrientationChange);
+    window.addEventListener('orientationchange', handleOrientationChange);
     return () => {
       if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener('change', handleChange);
+        mediaQuery.removeEventListener('change', handleOrientationChange);
       } else {
-        mediaQuery.removeListener(handleChange);
+        mediaQuery.removeListener(handleOrientationChange);
       }
+      window.removeEventListener('resize', handleOrientationChange);
+      window.removeEventListener('orientationchange', handleOrientationChange);
     };
   }, []);
+
+  // Automatic sheet width adaptation: 100% in landscape, restores to original setting in vertical/portrait
+  const prevIsLandscapeRef = useRef<boolean>(isLandscape);
+  useEffect(() => {
+    if (prevIsLandscapeRef.current !== isLandscape) {
+      if (isLandscape) {
+        // Going to Landscape:
+        // Save current frameWidth as portrait width
+        const currentPortrait = portraitFrameWidthRef.current || 105;
+        setPortraitFrameWidth(currentPortrait);
+        localStorage.setItem('novel_portrait_frame_width', currentPortrait.toString());
+        setFrameWidth(100);
+      } else {
+        // Going back to Vertical / Portrait:
+        // Restore to what was originally set
+        const savedPortrait = localStorage.getItem('novel_portrait_frame_width');
+        const restoreVal = savedPortrait ? parseInt(savedPortrait, 10) : portraitFrameWidthRef.current;
+        setFrameWidth(restoreVal || 105);
+      }
+      prevIsLandscapeRef.current = isLandscape;
+    }
+  }, [isLandscape]);
 
   useEffect(() => {
     localStorage.setItem('novel_infinite_scroll', infiniteScroll.toString());
@@ -1053,7 +1302,10 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('novel_frame_width', frameWidth.toString());
-  }, [frameWidth]);
+    if (!isLandscape) {
+      localStorage.setItem('novel_portrait_frame_width', frameWidth.toString());
+    }
+  }, [frameWidth, isLandscape]);
 
   // Reset distraction-free click tracking when state changes
   useEffect(() => {
@@ -3283,27 +3535,27 @@ export default function App() {
 
             {/* Right side: Infinity Toggle, Search, and Aa Settings */}
             <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-              {/* Reading Mode / Read Aloud Toggle Button */}
+              {/* Listen Mode Toggle Button (Replaces Read Aloud playback toggle) */}
               <button 
                 id="reading-mode-toggle-btn"
                 onClick={handleToggleReadingMode}
                 className={`p-2 sm:p-2.5 rounded-xl transition-all duration-150 flex items-center justify-center cursor-pointer active:scale-95 border ${
-                  ttsState.isActive 
+                  listenMode 
                     ? 'shadow-sm ring-1' 
-                    : 'hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'
+                    : 'border hover:bg-black/10 dark:hover:bg-white/10 opacity-70 hover:opacity-100'
                 }`}
                 style={{
-                  borderColor: ttsState.isActive ? currentTheme.accent : currentTheme.border,
-                  backgroundColor: ttsState.isActive ? `${currentTheme.accent}20` : 'transparent',
-                  color: ttsState.isActive ? currentTheme.accent : currentTheme.secondaryText,
-                  boxShadow: ttsState.isActive ? `0 0 10px ${currentTheme.accent}25` : undefined
+                  borderColor: listenMode ? currentTheme.accent : currentTheme.border,
+                  backgroundColor: listenMode ? `${currentTheme.accent}20` : 'transparent',
+                  color: listenMode ? currentTheme.accent : currentTheme.secondaryText,
+                  boxShadow: listenMode ? `0 0 10px ${currentTheme.accent}25` : undefined
                 }}
-                title={ttsState.isPlaying ? "Pause Read Aloud" : "Start Read Aloud"}
-                aria-label={ttsState.isPlaying ? "Pause Read Aloud" : "Start Read Aloud"}
+                title={listenMode ? "Listen Mode: On (Optimized for Edge read aloud)" : "Listen Mode: Off"}
+                aria-label={`Listen mode is ${listenMode ? 'On' : 'Off'}`}
               >
                 <ReadAloudIcon 
-                  className={`w-4.5 h-4.5 ${ttsState.isPlaying ? 'animate-pulse' : ''}`} 
-                  style={{ color: ttsState.isActive ? currentTheme.accent : undefined }}
+                  className={`w-4.5 h-4.5 ${listenMode ? 'animate-pulse' : ''}`} 
+                  style={{ color: listenMode ? currentTheme.accent : undefined }}
                 />
               </button>
 
@@ -3366,11 +3618,11 @@ export default function App() {
           >
             <div 
               id="quick-nav-dialog"
-              className="w-full max-w-lg rounded-2xl border shadow-2xl p-5 space-y-4 text-slate-100 bg-[#16181D] border-white/15 animate-in zoom-in-95 duration-200 select-none"
+              className="w-full max-w-lg rounded-2xl border shadow-2xl p-5 space-y-3.5 text-slate-100 bg-[#16181D] border-white/15 animate-in zoom-in-95 duration-200 select-none max-h-[88vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center justify-between pb-3 border-b border-white/10 flex-shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="p-1.5 rounded-lg bg-[#FF79B0]/20 text-[#FF79B0]">
                     <BookOpen className="w-4 h-4" />
@@ -3386,10 +3638,10 @@ export default function App() {
               </div>
 
               {/* Active Chapter Card with Prev / Next Navigation */}
-              <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3">
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-3 flex-shrink-0">
                 <div className="flex items-center justify-between text-xs text-[#FF79B0] font-bold uppercase tracking-wider">
                   <span>Current Chapter</span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#FF79B0]/20 text-[#FF79B0] text-[10px] font-mono border border-[#FF79B0]/30">
+                  <span className="px-2.5 py-0.5 rounded-full bg-[#FF79B0]/20 text-[#FF79B0] text-[10px] font-mono border border-[#FF79B0]/30 font-bold">
                     {currentChapterIndex + 1} of {chapters.length}
                   </span>
                 </div>
@@ -3435,8 +3687,49 @@ export default function App() {
                 </div>
               </div>
 
+              {/* Recently Visited / Reading History Pills */}
+              {recentChapters.length > 0 && (
+                <div className="space-y-1.5 pt-0.5 flex-shrink-0">
+                  <div className="flex items-center justify-between text-[11px] text-white/50 font-bold uppercase tracking-wider">
+                    <span className="flex items-center gap-1.5">
+                      <History className="w-3.5 h-3.5 text-[#FF79B0]" />
+                      <span>Reading History</span>
+                    </span>
+                    <span className="text-[10px] text-white/40 font-normal">Recent {Math.min(recentChapters.length, 4)} chapters</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 custom-scrollbar">
+                    {recentChapters.slice(0, 4).map((chap) => {
+                      const index = chapters.findIndex(c => c.id === chap.id);
+                      const isCurrent = index === currentChapterIndex;
+                      return (
+                        <button
+                          key={chap.id}
+                          onClick={() => {
+                            setCurrentChapterIndex(index);
+                            setIsQuickNavOpen(false);
+                            setQuickNavSearch('');
+                          }}
+                          className={`flex-shrink-0 px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
+                            isCurrent
+                              ? 'bg-[#FF79B0]/25 text-[#FF79B0] border-[#FF79B0]/50 shadow-sm'
+                              : 'bg-white/5 hover:bg-white/15 text-white/80 hover:text-white border-white/10 active:scale-95'
+                          }`}
+                          title={`Jump to Chapter ${chap.number}: ${chap.title}`}
+                        >
+                          <span className="font-mono text-[10px] text-[#FF79B0] font-bold">Ch.{chap.number}</span>
+                          <span className="truncate max-w-[110px] sm:max-w-[130px]">{chap.title}</span>
+                          {isCurrent && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#FF79B0] ml-0.5"></span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Quick Search */}
-              <div className="relative flex items-center">
+              <div className="relative flex items-center flex-shrink-0">
                 <Search className="w-4 h-4 absolute left-3.5 text-white/40 pointer-events-none" />
                 <input 
                   type="text"
@@ -3455,8 +3748,8 @@ export default function App() {
                 )}
               </div>
 
-              {/* Chapter Jump List */}
-              <div className="max-h-60 overflow-y-auto pr-1 space-y-1.5 custom-scrollbar">
+              {/* Chapter Jump List - Expanded height for 10-14 chapters */}
+              <div className="flex-1 min-h-[280px] max-h-[58vh] sm:max-h-[64vh] overflow-y-auto pr-1 space-y-1.5 custom-scrollbar">
                 {chapters
                   .filter(chap => !quickNavSearch || chap.title.toLowerCase().includes(quickNavSearch.toLowerCase()) || chap.number.toString().includes(quickNavSearch))
                   .map((chap) => {
@@ -3465,21 +3758,23 @@ export default function App() {
                     return (
                       <button
                         key={chap.id}
+                        id={`quick-nav-item-${chap.id}`}
                         onClick={() => {
                           setCurrentChapterIndex(index);
                           setIsQuickNavOpen(false);
                           setQuickNavSearch('');
                         }}
-                        className={`w-full text-left p-3 rounded-xl text-xs transition-all flex items-center justify-between cursor-pointer ${
+                        className={`w-full text-left p-3.5 rounded-xl text-xs transition-all flex items-center justify-between cursor-pointer ${
                           isSelected
-                            ? 'bg-[#FF79B0]/20 border border-[#FF79B0]/50 text-white font-bold shadow-sm'
+                            ? 'bg-[#FF79B0]/20 border-2 border-[#FF79B0] text-white font-bold shadow-lg shadow-[#FF79B0]/15 ring-1 ring-[#FF79B0]/40'
                             : 'bg-white/5 hover:bg-white/10 border border-white/5 text-white/80 hover:text-white'
                         }`}
                       >
-                        <span className="truncate pr-2">📖 Chapter {chap.number}: {chap.title}</span>
+                        <span className="truncate pr-2 font-medium">📖 Chapter {chap.number}: {chap.title}</span>
                         {isSelected ? (
-                          <span className="px-2 py-0.5 text-[10px] bg-[#FF79B0] text-slate-950 font-extrabold rounded flex-shrink-0">
-                            Reading
+                          <span className="px-2.5 py-1 text-[11px] bg-[#FF79B0] text-slate-950 font-extrabold rounded-lg shadow-sm flex items-center gap-1.5 flex-shrink-0 animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-950 inline-block"></span>
+                            Currently Reading
                           </span>
                         ) : (
                           <span className="text-[10px] text-white/40 font-mono flex-shrink-0">
@@ -3504,7 +3799,7 @@ export default function App() {
               title="Show Controls"
             >
               <Maximize2 className="w-3 h-3" />
-              <span>Exit Fullscreen Mode</span>
+              <span>Exit Distraction-Free Mode</span>
             </button>
           </div>
         )}
@@ -3514,10 +3809,17 @@ export default function App() {
           id="reader-canvas"
           ref={readerContainerRef}
           onClick={handleCanvasClick}
+          onTouchEnd={handleCanvasTouchEnd}
+          onDoubleClick={(e) => {
+            const target = e.target as HTMLElement;
+            if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('textarea')) {
+              return;
+            }
+            toggleDistractionFreeAndFullscreen();
+          }}
           className="flex-1 px-4 md:px-8 py-10 select-text outline-none relative transition-colors duration-300"
           style={frameEnabled ? frameStyles.outerStyle : {}}
-          onDoubleClick={() => handleSetDistractionFree(!isDistractionFree)}
-          title="Double click or tap 3 times to toggle Distraction-Free controls!"
+          title="Double tap or double click to toggle Fullscreen & hide address bar!"
         >
           {chapters.length === 0 ? (
             <div id="empty-reader" className="h-full flex flex-col items-center justify-center text-center p-8 max-w-lg mx-auto">
@@ -4282,6 +4584,32 @@ export default function App() {
                     </button>
                   </div>
 
+                  {/* True Fullscreen Mode */}
+                  <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between hover:bg-white/[0.07] transition-all">
+                    <div>
+                      <span className="text-xs font-bold text-white block">True Fullscreen</span>
+                      <span className="text-[10px] text-white/50 block mt-0.5">
+                        Hide browser address & status bars
+                      </span>
+                    </div>
+                    <button
+                      id="settings-fullscreen-btn"
+                      type="button"
+                      onClick={handleToggleFullscreen}
+                      className="w-12 h-6.5 rounded-full transition-all duration-200 relative flex items-center p-1 cursor-pointer flex-shrink-0"
+                      style={{ 
+                        backgroundColor: isFullscreen ? '#FF79B0' : 'rgba(255, 255, 255, 0.15)'
+                      }}
+                      title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                    >
+                      <div 
+                        className={`w-4.5 h-4.5 rounded-full bg-slate-900 shadow-md transition-transform duration-200 ${
+                          isFullscreen ? 'translate-x-5.5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
                   {/* Aesthetic Book-Page Framing Toggle */}
                   <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between hover:bg-white/[0.07] transition-all">
                     <div>
@@ -4313,7 +4641,14 @@ export default function App() {
                     {/* Sheet Width Slider */}
                     <div className="space-y-2 pb-3 border-b border-white/10">
                       <div className="flex justify-between items-center text-[10px] text-white/60 uppercase font-bold tracking-wider">
-                        <span>Sheet Width</span>
+                        <span className="flex items-center gap-1.5">
+                          <span>Sheet Width</span>
+                          {isLandscape && (
+                            <span className="px-1.5 py-0.5 rounded bg-[#FF79B0]/20 text-[#FF79B0] text-[9px] font-bold lowercase tracking-normal">
+                              auto landscape: 100%
+                            </span>
+                          )}
+                        </span>
                         <span className="text-[#FF79B0] font-mono text-xs font-bold">{frameWidth}%</span>
                       </div>
                       <input 
@@ -4323,7 +4658,7 @@ export default function App() {
                         max="105"
                         step="5"
                         value={frameWidth}
-                        onChange={(e) => setFrameWidth(parseInt(e.target.value, 10))}
+                        onChange={(e) => handleUpdateFrameWidth(parseInt(e.target.value, 10))}
                         className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer accent-[#FF79B0] hover:bg-white/30 transition-all"
                       />
                       <div className="grid grid-cols-6 gap-1 text-center mt-1.5">
@@ -4331,7 +4666,7 @@ export default function App() {
                           <button
                             key={w}
                             type="button"
-                            onClick={() => setFrameWidth(w)}
+                            onClick={() => handleUpdateFrameWidth(w)}
                             className={`py-1 rounded-lg text-[9px] font-bold transition-all border cursor-pointer ${
                               frameWidth === w 
                                 ? 'bg-[#FF79B0]/20 text-[#FF79B0] border-[#FF79B0]/50' 
@@ -4342,6 +4677,11 @@ export default function App() {
                           </button>
                         ))}
                       </div>
+                      {isLandscape && (
+                        <p className="text-[10px] text-white/50 italic mt-1">
+                          Vertical/portrait is saved at {portraitFrameWidth}% and will automatically restore when rotated.
+                        </p>
+                      )}
                     </div>
 
                     {/* Theme / Preset Selection */}
