@@ -387,12 +387,6 @@ export default function App() {
   const [searchMode, setSearchMode] = useState<'chapters' | 'text'>('chapters');
   const [highlightedParagraph, setHighlightedParagraph] = useState<{ chapterId: string; paragraphIndex: number } | null>(null);
   const [isDistractionFree, setIsDistractionFree] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(() => {
-    if (typeof document !== 'undefined') {
-      return Boolean(document.fullscreenElement || (document as any).webkitFullscreenElement);
-    }
-    return false;
-  });
   const [isReadingSettingsOpen, setIsReadingSettingsOpen] = useState(false);
   const [isQuickNavOpen, setIsQuickNavOpen] = useState(false);
   const [quickNavSearch, setQuickNavSearch] = useState('');
@@ -597,129 +591,20 @@ export default function App() {
     }, 1000); // 1 second window to tap 3 times
   };
 
-  // --- NATIVE FULLSCREEN (OPTION 1) STATE & SYNC ---
-  const wasFullscreenRef = useRef<boolean>(false);
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      const isFs = Boolean(
-        document.fullscreenElement || 
-        (document as any).webkitFullscreenElement ||
-        (document as any).mozFullScreenElement ||
-        (document as any).msFullscreenElement
-      );
-      setIsFullscreen(isFs);
-      // Only when transitioning from fullscreen (true) to normal (false) do we restore header bar
-      if (wasFullscreenRef.current && !isFs) {
-        setIsDistractionFree(false);
-      }
-      wasFullscreenRef.current = isFs;
-    };
-
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
-
-    return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
-      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
-      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
-    };
-  }, []);
-
-  const enterNativeFullscreen = useCallback(async () => {
-    try {
-      const isCurrentlyFs = Boolean(
-        document.fullscreenElement || 
-        (document as any).webkitFullscreenElement ||
-        (document as any).mozFullScreenElement ||
-        (document as any).msFullscreenElement
-      );
-
-      if (!isCurrentlyFs) {
-        const elem = document.documentElement as any;
-        if (elem.requestFullscreen) {
-          try {
-            await elem.requestFullscreen({ navigationUI: 'hide' });
-          } catch {
-            await elem.requestFullscreen();
-          }
-        } else if (elem.webkitRequestFullscreen) {
-          await elem.webkitRequestFullscreen();
-        } else if (elem.mozRequestFullScreen) {
-          await elem.mozRequestFullScreen();
-        } else if (elem.msRequestFullscreen) {
-          await elem.msRequestFullscreen();
-        }
-      }
-    } catch (err) {
-      console.warn('Native fullscreen enter failed:', err);
-    }
-  }, []);
-
-  const exitNativeFullscreen = useCallback(async () => {
-    try {
-      const isCurrentlyFs = Boolean(
-        document.fullscreenElement || 
-        (document as any).webkitFullscreenElement ||
-        (document as any).mozFullScreenElement ||
-        (document as any).msFullscreenElement
-      );
-
-      if (isCurrentlyFs) {
-        const doc = document as any;
-        if (doc.exitFullscreen) {
-          await doc.exitFullscreen();
-        } else if (doc.webkitExitFullscreen) {
-          await doc.webkitExitFullscreen();
-        } else if (doc.mozCancelFullScreen) {
-          await doc.mozCancelFullScreen();
-        } else if (doc.msExitFullscreen) {
-          await doc.msExitFullscreen();
-        }
-      }
-    } catch (err) {
-      console.warn('Native fullscreen exit failed:', err);
-    }
-  }, []);
-
-  const handleToggleFullscreen = useCallback(async () => {
-    const isCurrentlyFs = Boolean(
-      document.fullscreenElement || 
-      (document as any).webkitFullscreenElement ||
-      (document as any).mozFullScreenElement ||
-      (document as any).msFullscreenElement
-    );
-    if (!isCurrentlyFs) {
-      await enterNativeFullscreen();
-    } else {
-      await exitNativeFullscreen();
-    }
-  }, [enterNativeFullscreen, exitNativeFullscreen]);
-
-  // Consolidated & debounced toggle for both desktop double-click and mobile double-tap
+  // Consolidated & debounced toggle for distraction-free mode (hiding application chapter header)
   const lastDoubleTapActionRef = useRef<number>(0);
-  const toggleDistractionFreeAndFullscreen = useCallback(() => {
+  const toggleDistractionFree = useCallback(() => {
     const now = Date.now();
     // Guard against duplicate execution when touch generates both touchend & synthetic dblclick
-    if (now - lastDoubleTapActionRef.current < 500) {
+    if (now - lastDoubleTapActionRef.current < 400) {
       return;
     }
     lastDoubleTapActionRef.current = now;
 
-    setIsDistractionFree(prev => {
-      const next = !prev;
-      if (next) {
-        enterNativeFullscreen();
-      } else {
-        exitNativeFullscreen();
-      }
-      return next;
-    });
-  }, [enterNativeFullscreen, exitNativeFullscreen]);
+    setIsDistractionFree(prev => !prev);
+  }, []);
 
-  // Touch tracking for mobile double-tap to toggle fullscreen & header bar
+  // Touch tracking for mobile double-tap to toggle distraction-free header bar
   const lastTouchTimeRef = useRef<number>(0);
   const handleCanvasTouchEnd = (e: React.TouchEvent) => {
     const target = e.target as HTMLElement;
@@ -727,9 +612,9 @@ export default function App() {
       return;
     }
     const now = Date.now();
-    if (now - lastTouchTimeRef.current < 80) {
+    if (now - lastTouchTimeRef.current < 250) {
       lastTouchTimeRef.current = 0;
-      toggleDistractionFreeAndFullscreen();
+      toggleDistractionFree();
     } else {
       lastTouchTimeRef.current = now;
     }
@@ -1126,11 +1011,6 @@ export default function App() {
     withScrollPreservation(() => {
       setIsDistractionFree(df);
     });
-    if (df) {
-      enterNativeFullscreen();
-    } else {
-      exitNativeFullscreen();
-    }
   };
 
   const handleSetReadingSettingsOpen = (open: boolean) => {
@@ -3815,11 +3695,11 @@ export default function App() {
             if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('textarea')) {
               return;
             }
-            toggleDistractionFreeAndFullscreen();
+            toggleDistractionFree();
           }}
           className="flex-1 px-4 md:px-8 py-10 select-text outline-none relative transition-colors duration-300"
           style={frameEnabled ? frameStyles.outerStyle : {}}
-          title="Double tap or double click to toggle Fullscreen & hide address bar!"
+          title="Double tap or double click to toggle Distraction-Free mode"
         >
           {chapters.length === 0 ? (
             <div id="empty-reader" className="h-full flex flex-col items-center justify-center text-center p-8 max-w-lg mx-auto">
@@ -4579,32 +4459,6 @@ export default function App() {
                       <div 
                         className={`w-4.5 h-4.5 rounded-full bg-slate-900 shadow-md transition-transform duration-200 ${
                           isDistractionFree ? 'translate-x-5.5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                  {/* True Fullscreen Mode */}
-                  <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between hover:bg-white/[0.07] transition-all">
-                    <div>
-                      <span className="text-xs font-bold text-white block">True Fullscreen</span>
-                      <span className="text-[10px] text-white/50 block mt-0.5">
-                        Hide browser address & status bars
-                      </span>
-                    </div>
-                    <button
-                      id="settings-fullscreen-btn"
-                      type="button"
-                      onClick={handleToggleFullscreen}
-                      className="w-12 h-6.5 rounded-full transition-all duration-200 relative flex items-center p-1 cursor-pointer flex-shrink-0"
-                      style={{ 
-                        backgroundColor: isFullscreen ? '#FF79B0' : 'rgba(255, 255, 255, 0.15)'
-                      }}
-                      title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-                    >
-                      <div 
-                        className={`w-4.5 h-4.5 rounded-full bg-slate-900 shadow-md transition-transform duration-200 ${
-                          isFullscreen ? 'translate-x-5.5' : 'translate-x-0'
                         }`}
                       />
                     </button>
