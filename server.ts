@@ -98,15 +98,33 @@ async function startServer() {
       }
 
       console.log(`Fetching URL: ${url}`);
+      let parsedDomain = 'https://novelfire.net/';
+      try {
+        const u = new URL(url);
+        parsedDomain = `${u.protocol}//${u.host}/`;
+      } catch {}
+
       const response = await fetch(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': parsedDomain,
+          'sec-ch-ua': '"Chromium";v="128", "Not;A=Brand";v="24", "Google Chrome";v="128"',
+          'sec-ch-ua-mobile': '?0',
+          'sec-ch-ua-platform': '"Windows"',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'same-origin',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1'
         }
       });
 
       if (!response.ok) {
+        if (response.status === 429) {
+          return res.status(429).json({ error: 'Rate limited (429: Too Many Requests). Wait a few seconds and use "Retry Failed Chapters".' });
+        }
         return res.status(response.status).json({ error: `Failed to fetch page: ${response.statusText}` });
       }
 

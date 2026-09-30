@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   BookOpen, 
   Settings, 
@@ -27,12 +27,16 @@ import {
   Square,
   Eraser,
   Undo2,
+  Redo2,
+  History,
   AlertCircle,
   CheckCircle2,
   Zap,
   RefreshCw,
   FileText,
-  ListFilter
+  ListFilter,
+  BookmarkPlus,
+  HelpCircle
 } from 'lucide-react';
 import { 
   TerminologyRule, 
@@ -49,7 +53,7 @@ import {
   scanChaptersForPattern, 
   executeCleanChapters, 
   executeAllCleanerRules,
-  COMMON_CLEANER_PRESETS,
+  CleanerPreset,
   CleanScanResult
 } from '../utils/cleaner';
 
@@ -138,8 +142,48 @@ export const TerminologyManagerModal: React.FC<TerminologyManagerModalProps> = (
   const [saveAsPersistentRule, setSaveAsPersistentRule] = useState(true);
   const [cleanerRuleScope, setCleanerRuleScope] = useState<'global' | 'novel'>('global');
   const [isPreviewMatchesOpen, setIsPreviewMatchesOpen] = useState(false);
-  const [previousChaptersBackup, setPreviousChaptersBackup] = useState<Chapter[] | null>(null);
+  
+  // ADVANCED MULTI-STEP CLEANER UNDO / REDO HISTORY
+  interface CleanerHistorySnapshot {
+    id: string;
+    timestamp: number;
+    label: string;
+    chapters: Chapter[];
+    linesRemovedCount?: number;
+  }
+  const [cleanerUndoStack, setCleanerUndoStack] = useState<CleanerHistorySnapshot[]>([]);
+  const [cleanerRedoStack, setCleanerRedoStack] = useState<CleanerHistorySnapshot[]>([]);
+  const [isHistoryDrawerOpen, setIsHistoryDrawerOpen] = useState(false);
   const [isCleaningInProgress, setIsCleaningInProgress] = useState(false);
+
+  // CUSTOM QUICK PRESETS STATE
+  const [customPresets, setCustomPresets] = useState<CleanerPreset[]>(() => {
+    try {
+      const saved = localStorage.getItem('novel_cleaner_custom_presets');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.error('Failed to load custom cleaner presets:', e);
+    }
+    return [];
+  });
+
+  // Sync custom presets to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('novel_cleaner_custom_presets', JSON.stringify(customPresets));
+    } catch (e) {
+      console.error('Failed to save custom presets:', e);
+    }
+  }, [customPresets]);
+
+  const [isAddPresetOpen, setIsAddPresetOpen] = useState(false);
+  const [presetTitleInput, setPresetTitleInput] = useState('');
+  const [presetPatternInput, setPresetPatternInput] = useState('');
+  const [presetModeInput, setPresetModeInput] = useState<CleanerMatchMode>('contains');
+  const [isMatchModeHelpOpen, setIsMatchModeHelpOpen] = useState(false);
 
   // Toggle Category Collapse
   const toggleCategoryCollapse = (cat: string) => {
@@ -150,6 +194,49 @@ export const TerminologyManagerModal: React.FC<TerminologyManagerModalProps> = (
   const safeIgnoreTerms = useMemo(() => Array.isArray(ignoreTerms) ? ignoreTerms.filter(Boolean) : [], [ignoreTerms]);
   const safeCleanerRules = useMemo(() => Array.isArray(cleanerRules) ? cleanerRules.filter(Boolean) : [], [cleanerRules]);
   const safeChapters = useMemo(() => Array.isArray(chapters) ? chapters.filter(Boolean) : [], [chapters]);
+
+  // SOLUTION B: Auto-prune cleaner history whenever chapters are deleted or novel changes
+  const previousChapterIdsRef = useRef<string[]>([]);
+  const previousBookTitleRef = useRef<string | undefined>(currentBookTitle);
+
+  useEffect(() => {
+    // If novel changed, reset history completely
+    if (previousBookTitleRef.current !== currentBookTitle) {
+      previousBookTitleRef.current = currentBookTitle;
+      setCleanerUndoStack([]);
+      setCleanerRedoStack([]);
+      previousChapterIdsRef.current = safeChapters.map(c => c.id || String(c.number));
+      return;
+    }
+
+    const currentIds = safeChapters.map(c => c.id || String(c.number));
+    const currentIdSet = new Set(currentIds);
+    const prevIds = previousChapterIdsRef.current;
+
+    // Check if any chapters were deleted (previous IDs no longer exist in current chapters)
+    const wasChapterDeleted = prevIds.length > 0 && prevIds.some(id => !currentIdSet.has(id));
+
+    if (wasChapterDeleted) {
+      // Auto-prune all snapshots in Undo & Redo stacks so deleted chapters are scrubbed from history
+      const pruneSnapshot = (snap: CleanerHistorySnapshot): CleanerHistorySnapshot | null => {
+        const remainingChapters = snap.chapters.filter(c => currentIdSet.has(c.id || String(c.number)));
+        if (remainingChapters.length === 0) return null;
+        return {
+          ...snap,
+          chapters: remainingChapters
+        };
+      };
+
+      setCleanerUndoStack(prev => 
+        prev.map(pruneSnapshot).filter((s): s is CleanerHistorySnapshot => s !== null)
+      );
+      setCleanerRedoStack(prev => 
+        prev.map(pruneSnapshot).filter((s): s is CleanerHistorySnapshot => s !== null)
+      );
+    }
+
+    previousChapterIdsRef.current = currentIds;
+  }, [safeChapters, currentBookTitle]);
 
   // Live scan result for the current cleanerInput
   const liveScanResult: CleanScanResult = useMemo(() => {
@@ -180,10 +267,7 @@ export const TerminologyManagerModal: React.FC<TerminologyManagerModalProps> = (
     setIsCleaningInProgress(true);
 
     try {
-      // 1. Create backup for undo
-      setPreviousChaptersBackup([...safeChapters]);
-
-      // 2. Clean chapters
+      // 1. Clean chapters
       const result = executeCleanChapters(
         safeChapters,
         cleanerInput,
@@ -197,6 +281,22 @@ export const TerminologyManagerModal: React.FC<TerminologyManagerModalProps> = (
         setIsCleaningInProgress(false);
         return;
       }
+
+      // 2. Push current state to multi-step Undo history before updating
+      const cleanLabel = cleanerInput.trim().length > 25 
+        ? `${cleanerInput.trim().slice(0, 22)}...` 
+        : cleanerInput.trim();
+      
+      const newSnapshot: CleanerHistorySnapshot = {
+        id: `clean-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        timestamp: Date.now(),
+        label: `Removed "${cleanLabel}" (${result.totalRemovedCount} line${result.totalRemovedCount > 1 ? 's' : ''})`,
+        chapters: safeChapters.map(c => ({ ...c, content: [...c.content] })),
+        linesRemovedCount: result.totalRemovedCount
+      };
+
+      setCleanerUndoStack(prev => [newSnapshot, ...prev].slice(0, 20));
+      setCleanerRedoStack([]); // reset redo tree on new action
 
       // 3. Update chapter state & localStorage
       setChapters(result.updatedChapters);
@@ -245,17 +345,101 @@ export const TerminologyManagerModal: React.FC<TerminologyManagerModalProps> = (
     }
   };
 
-  // Undo last clean
+  // Multi-step Undo (SOLUTION A: Guarded by active chapter IDs - Never restores deleted chapters)
   const handleUndoClean = () => {
-    if (!previousChaptersBackup || !setChapters) return;
-    setChapters(previousChaptersBackup);
+    if (cleanerUndoStack.length === 0 || !setChapters) return;
+
+    const [snapshotToRestore, ...remainingUndo] = cleanerUndoStack;
+
+    // Push current chapters into Redo stack before restoring previous state
+    const redoSnapshot: CleanerHistorySnapshot = {
+      id: `redo-${Date.now()}`,
+      timestamp: Date.now(),
+      label: snapshotToRestore.label,
+      chapters: safeChapters.map(c => ({ ...c, content: [...c.content] })),
+      linesRemovedCount: snapshotToRestore.linesRemovedCount
+    };
+
+    setCleanerRedoStack(prev => [redoSnapshot, ...prev].slice(0, 20));
+    setCleanerUndoStack(remainingUndo);
+
+    // Guard: Map each restored chapter's content strictly into chapters that CURRENTLY exist in the novel
+    const snapshotChapterMap = new Map<string, string[]>();
+    for (const snapCh of snapshotToRestore.chapters) {
+      const key = snapCh.id || String(snapCh.number);
+      snapshotChapterMap.set(key, snapCh.content);
+    }
+
+    const updatedChapters = safeChapters.map(currentCh => {
+      const key = currentCh.id || String(currentCh.number);
+      const restoredContent = snapshotChapterMap.get(key);
+      if (restoredContent) {
+        return {
+          ...currentCh,
+          content: [...restoredContent]
+        };
+      }
+      return currentCh; // Not in snapshot or created later: keep intact
+    });
+
+    setChapters(updatedChapters);
     try {
-      localStorage.setItem('novel_chapters', JSON.stringify(previousChaptersBackup));
+      localStorage.setItem('novel_chapters', JSON.stringify(updatedChapters));
     } catch (e) {
       console.error('Failed to undo chapters in localStorage:', e);
     }
-    setPreviousChaptersBackup(null);
-    showNotification('Restored chapters to state before last clean', 'info');
+
+    showNotification(
+      `Undid: ${snapshotToRestore.label}${remainingUndo.length > 0 ? ` (${remainingUndo.length} more available)` : ''}`,
+      'info'
+    );
+  };
+
+  // Multi-step Redo (SOLUTION A: Guarded by active chapter IDs - Never restores deleted chapters)
+  const handleRedoClean = () => {
+    if (cleanerRedoStack.length === 0 || !setChapters) return;
+
+    const [snapshotToRedo, ...remainingRedo] = cleanerRedoStack;
+
+    // Push current chapters into Undo stack before reapplying
+    const undoSnapshot: CleanerHistorySnapshot = {
+      id: `undo-${Date.now()}`,
+      timestamp: Date.now(),
+      label: snapshotToRedo.label,
+      chapters: safeChapters.map(c => ({ ...c, content: [...c.content] })),
+      linesRemovedCount: snapshotToRedo.linesRemovedCount
+    };
+
+    setCleanerUndoStack(prev => [undoSnapshot, ...prev].slice(0, 20));
+    setCleanerRedoStack(remainingRedo);
+
+    // Guard: Map each redone chapter's content strictly into chapters that CURRENTLY exist in the novel
+    const snapshotChapterMap = new Map<string, string[]>();
+    for (const snapCh of snapshotToRedo.chapters) {
+      const key = snapCh.id || String(snapCh.number);
+      snapshotChapterMap.set(key, snapCh.content);
+    }
+
+    const updatedChapters = safeChapters.map(currentCh => {
+      const key = currentCh.id || String(currentCh.number);
+      const redoneContent = snapshotChapterMap.get(key);
+      if (redoneContent) {
+        return {
+          ...currentCh,
+          content: [...redoneContent]
+        };
+      }
+      return currentCh;
+    });
+
+    setChapters(updatedChapters);
+    try {
+      localStorage.setItem('novel_chapters', JSON.stringify(updatedChapters));
+    } catch (e) {
+      console.error('Failed to redo chapters in localStorage:', e);
+    }
+
+    showNotification(`Redid: ${snapshotToRedo.label}`, 'success');
   };
 
   // Execute all saved cleaner rules on all chapters
@@ -265,7 +449,6 @@ export const TerminologyManagerModal: React.FC<TerminologyManagerModalProps> = (
       return;
     }
 
-    setPreviousChaptersBackup([...safeChapters]);
     const { updatedChapters, totalRemoved } = executeAllCleanerRules(
       safeChapters,
       safeCleanerRules,
@@ -276,6 +459,18 @@ export const TerminologyManagerModal: React.FC<TerminologyManagerModalProps> = (
       showNotification('All chapters are already clean. No matching lines found.', 'info');
       return;
     }
+
+    // Push to undo stack
+    const newSnapshot: CleanerHistorySnapshot = {
+      id: `clean-all-${Date.now()}`,
+      timestamp: Date.now(),
+      label: `Ran All Cleaner Rules (${totalRemoved} line${totalRemoved > 1 ? 's' : ''})`,
+      chapters: safeChapters.map(c => ({ ...c, content: [...c.content] })),
+      linesRemovedCount: totalRemoved
+    };
+
+    setCleanerUndoStack(prev => [newSnapshot, ...prev].slice(0, 20));
+    setCleanerRedoStack([]);
 
     setChapters(updatedChapters);
     try {
@@ -306,8 +501,55 @@ export const TerminologyManagerModal: React.FC<TerminologyManagerModalProps> = (
     }
   };
 
+  // Custom Quick Presets handlers
+  const handleOpenAddPreset = () => {
+    // If user already typed something into cleanerInput, pre-fill it!
+    setPresetPatternInput(cleanerInput.trim());
+    setPresetModeInput(cleanerMode);
+    if (cleanerInput.trim()) {
+      const cleanSnippet = cleanerInput.trim().slice(0, 24);
+      setPresetTitleInput(cleanSnippet);
+    } else {
+      setPresetTitleInput('');
+    }
+    setIsAddPresetOpen(true);
+  };
+
+  const handleSaveCustomPreset = () => {
+    const title = presetTitleInput.trim();
+    const pattern = presetPatternInput.trim() || cleanerInput.trim();
+
+    if (!title) {
+      showNotification('Please enter a name for your preset', 'error');
+      return;
+    }
+    if (!pattern) {
+      showNotification('Please provide text to remove for this preset', 'error');
+      return;
+    }
+
+    const newPreset: CleanerPreset = {
+      id: `preset-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      title,
+      pattern,
+      mode: presetModeInput
+    };
+
+    setCustomPresets(prev => [...prev, newPreset]);
+    setIsAddPresetOpen(false);
+    setPresetTitleInput('');
+    setPresetPatternInput('');
+    showNotification(`Saved custom preset: "${title}"`, 'success');
+  };
+
+  const handleDeletePreset = (idOrIndex: string | number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCustomPresets(prev => prev.filter((p, idx) => (p.id ? p.id !== idOrIndex : idx !== idOrIndex)));
+    showNotification('Preset removed', 'info');
+  };
+
   // Quick preset loader
-  const handleApplyPreset = (preset: typeof COMMON_CLEANER_PRESETS[0]) => {
+  const handleApplyPreset = (preset: CleanerPreset) => {
     setCleanerInput(preset.pattern);
     setCleanerMode(preset.mode);
     setCleanerCaseSensitive(false);
@@ -1194,37 +1436,301 @@ export const TerminologyManagerModal: React.FC<TerminologyManagerModalProps> = (
                     </div>
                   </div>
 
-                  {previousChaptersBackup && (
+                  {/* Advanced Multi-step Undo & Redo Controls */}
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
                       onClick={handleUndoClean}
-                      className="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm active:scale-95"
+                      disabled={cleanerUndoStack.length === 0}
+                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${
+                        cleanerUndoStack.length > 0
+                          ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/40 cursor-pointer active:scale-95'
+                          : 'bg-white/5 text-white/25 border-white/10 cursor-not-allowed opacity-50'
+                      }`}
+                      title={
+                        cleanerUndoStack.length > 0
+                          ? `Undo: ${cleanerUndoStack[0].label} (${cleanerUndoStack.length} step${cleanerUndoStack.length > 1 ? 's' : ''} available)`
+                          : 'No clean actions to undo'
+                      }
                     >
                       <Undo2 className="w-3.5 h-3.5" />
-                      <span>Undo Last Clean</span>
+                      <span>Undo</span>
+                      {cleanerUndoStack.length > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/30 text-amber-200 font-mono font-bold">
+                          {cleanerUndoStack.length}
+                        </span>
+                      )}
                     </button>
-                  )}
+
+                    <button
+                      type="button"
+                      onClick={handleRedoClean}
+                      disabled={cleanerRedoStack.length === 0}
+                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${
+                        cleanerRedoStack.length > 0
+                          ? 'bg-[#FF79B0]/20 hover:bg-[#FF79B0]/30 text-[#FF79B0] border-[#FF79B0]/40 cursor-pointer active:scale-95'
+                          : 'bg-white/5 text-white/25 border-white/10 cursor-not-allowed opacity-50'
+                      }`}
+                      title={
+                        cleanerRedoStack.length > 0
+                          ? `Redo: ${cleanerRedoStack[0].label} (${cleanerRedoStack.length} step${cleanerRedoStack.length > 1 ? 's' : ''} available)`
+                          : 'No clean actions to redo'
+                      }
+                    >
+                      <Redo2 className="w-3.5 h-3.5" />
+                      <span>Redo</span>
+                      {cleanerRedoStack.length > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#FF79B0]/30 text-[#FF79B0] font-mono font-bold">
+                          {cleanerRedoStack.length}
+                        </span>
+                      )}
+                    </button>
+
+                    {(cleanerUndoStack.length > 0 || cleanerRedoStack.length > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => setIsHistoryDrawerOpen(!isHistoryDrawerOpen)}
+                        className={`p-1.5 rounded-xl border text-xs transition-all cursor-pointer ${
+                          isHistoryDrawerOpen
+                            ? 'bg-white/15 text-white border-white/30 shadow-sm'
+                            : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border-white/10'
+                        }`}
+                        title="View Clean History stack"
+                        aria-label="View Clean History stack"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {/* Quick Presets Pills */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] uppercase font-mono font-bold text-white/40 tracking-wider">
-                    Quick Presets:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {COMMON_CLEANER_PRESETS.map((preset, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleApplyPreset(preset)}
-                        className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-white/80 hover:text-white text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1"
-                        title={preset.description}
-                      >
-                        <Zap className="w-3 h-3 text-[#FF79B0]" />
-                        <span>{preset.title}</span>
-                      </button>
-                    ))}
+                {/* Expandable History Timeline Drawer */}
+                {isHistoryDrawerOpen && (cleanerUndoStack.length > 0 || cleanerRedoStack.length > 0) && (
+                  <div className="p-3.5 rounded-xl bg-black/60 border border-white/10 space-y-2 animate-in fade-in slide-in-from-top-1 duration-150 shadow-lg">
+                    <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-white/70">
+                      <span className="flex items-center gap-1.5 text-[#FF79B0]">
+                        <History className="w-4 h-4" />
+                        <span>Line Cleaner History Stack</span>
+                      </span>
+                      <span className="text-[10px] font-mono text-white/40">
+                        {cleanerUndoStack.length} undo{cleanerUndoStack.length !== 1 ? 's' : ''} • {cleanerRedoStack.length} redo{cleanerRedoStack.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+
+                    <div className="max-h-44 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                      {cleanerUndoStack.map((item, idx) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between p-2 rounded-lg bg-white/[0.03] border border-white/5 text-xs hover:bg-white/[0.05] transition-colors"
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-300 flex items-center justify-center text-[10px] font-mono font-bold flex-shrink-0">
+                              {idx + 1}
+                            </span>
+                            <span className="truncate text-white/90 font-medium">{item.label}</span>
+                          </div>
+                          <span className="text-[10px] font-mono text-white/40 flex-shrink-0 ml-2">
+                            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
+                )}
+
+                {/* Custom Quick Presets Bar */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-[#FF79B0]" />
+                      <span className="text-[11px] uppercase font-mono font-bold text-white/70 tracking-wider">
+                        Quick Presets
+                      </span>
+                      {customPresets.length > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#FF79B0]/20 text-[#FF79B0] font-mono font-bold border border-[#FF79B0]/30">
+                          {customPresets.length}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {cleanerInput.trim() && !isAddPresetOpen && (
+                        <button
+                          type="button"
+                          onClick={handleOpenAddPreset}
+                          className="px-2.5 py-1 rounded-lg bg-[#FF79B0]/15 hover:bg-[#FF79B0]/25 text-[#FF79B0] border border-[#FF79B0]/30 text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm active:scale-95"
+                          title="Save current text as a quick preset"
+                        >
+                          <BookmarkPlus className="w-3 h-3" />
+                          <span>Save as Preset</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isAddPresetOpen) {
+                            setIsAddPresetOpen(false);
+                          } else {
+                            handleOpenAddPreset();
+                          }
+                        }}
+                        className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${
+                          isAddPresetOpen
+                            ? 'bg-white/10 text-white border-white/20'
+                            : 'bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border-white/10'
+                        }`}
+                        title={isAddPresetOpen ? "Close preset creator" : "Create new custom preset"}
+                      >
+                        {isAddPresetOpen ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3 text-[#FF79B0]" />}
+                        <span>{isAddPresetOpen ? 'Cancel' : '+ Add Preset'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick Presets Pills Container */}
+                  <div className="flex flex-wrap items-center gap-1.5 min-h-[32px]">
+                    {customPresets.length === 0 && !isAddPresetOpen ? (
+                      <div className="w-full py-2.5 px-3 rounded-xl bg-white/[0.02] border border-dashed border-white/10 text-white/40 text-xs flex items-center justify-between gap-2">
+                        <span className="flex items-center gap-1.5 text-[11px]">
+                          <BookmarkPlus className="w-3.5 h-3.5 text-[#FF79B0]/70 flex-shrink-0" />
+                          <span>No quick presets yet. Add repetitive phrases to quickly remove them in one click!</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleOpenAddPreset}
+                          className="px-2.5 py-1 rounded-lg bg-[#FF79B0]/20 hover:bg-[#FF79B0]/30 text-[#FF79B0] text-[10px] font-bold border border-[#FF79B0]/30 cursor-pointer transition-all flex items-center gap-1 flex-shrink-0"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Create Preset</span>
+                        </button>
+                      </div>
+                    ) : (
+                      customPresets.map((preset, idx) => {
+                        const isCurrentlyLoaded = cleanerInput === preset.pattern && cleanerMode === preset.mode;
+                        return (
+                          <div
+                            key={preset.id || idx}
+                            className={`group relative flex items-center rounded-xl border text-[11px] font-medium transition-all ${
+                              isCurrentlyLoaded
+                                ? 'bg-[#FF79B0]/20 border-[#FF79B0]/60 text-white shadow-sm ring-1 ring-[#FF79B0]/30'
+                                : 'bg-white/5 hover:bg-white/10 border-white/10 text-white/80 hover:text-white hover:border-white/20'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleApplyPreset(preset)}
+                              className="py-1 pl-2.5 pr-1.5 flex items-center gap-1.5 cursor-pointer max-w-[220px]"
+                              title={`Click to load: "${preset.pattern}" (${preset.mode})`}
+                            >
+                              <Zap className={`w-3 h-3 flex-shrink-0 ${isCurrentlyLoaded ? 'text-[#FF79B0]' : 'text-[#FF79B0]/70'}`} />
+                              <span className="truncate">{preset.title}</span>
+                              <span className="text-[9px] px-1 py-0.2 rounded bg-black/40 text-white/50 font-mono flex-shrink-0">
+                                {preset.mode === 'contains' ? 'phrase' : preset.mode === 'exact' ? 'exact' : preset.mode === 'inline_strip' ? 'strip' : 'regex'}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeletePreset(preset.id || idx, e)}
+                              className="p-1 mr-1 rounded-md text-white/30 hover:text-rose-400 hover:bg-rose-500/20 transition-all cursor-pointer"
+                              title={`Delete preset "${preset.title}"`}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Inline Add Preset Creator Form */}
+                  {isAddPresetOpen && (
+                    <div className="p-3.5 rounded-xl bg-black/40 border border-[#FF79B0]/35 space-y-2.5 animate-in fade-in slide-in-from-top-1 duration-150 shadow-lg">
+                      <div className="flex items-center justify-between text-xs font-bold text-white">
+                        <span className="flex items-center gap-1.5 text-[#FF79B0]">
+                          <BookmarkPlus className="w-4 h-4" />
+                          <span>Create Custom Quick Preset</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddPresetOpen(false)}
+                          className="p-1 rounded-md text-white/50 hover:text-white hover:bg-white/10 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold uppercase text-white/50 tracking-wider">
+                            Preset Name
+                          </label>
+                          <input
+                            type="text"
+                            value={presetTitleInput}
+                            onChange={(e) => setPresetTitleInput(e.target.value)}
+                            placeholder="e.g. Patreon Plug, Translator Note, Watermark"
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/15 text-white text-xs placeholder-white/30 focus:outline-none focus:border-[#FF79B0]"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-bold uppercase text-white/50 tracking-wider">
+                              Match Mode
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setIsMatchModeHelpOpen(true)}
+                              className="w-4 h-4 rounded-full bg-white/10 hover:bg-[#FF79B0]/20 text-white/50 hover:text-[#FF79B0] border border-white/15 hover:border-[#FF79B0]/40 flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-90"
+                              title="Click for Match Mode examples & guide"
+                              aria-label="Click for Match Mode examples & guide"
+                            >
+                              <HelpCircle className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <select
+                            value={presetModeInput}
+                            onChange={(e) => setPresetModeInput(e.target.value as CleanerMatchMode)}
+                            className="w-full px-2.5 py-1.5 rounded-lg bg-[#16181D] border border-white/15 text-white text-xs focus:outline-none focus:border-[#FF79B0] cursor-pointer"
+                          >
+                            <option value="contains">Contains Phrase (Removes Whole Line)</option>
+                            <option value="exact">Exact Line Match</option>
+                            <option value="inline_strip">Inline Strip (Keeps Line, Removes Phrase)</option>
+                            <option value="regex">Regular Expression (Regex)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 text-xs">
+                        <label className="text-[10px] font-bold uppercase text-white/50 tracking-wider">
+                          Text / Line to Remove
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={presetPatternInput}
+                          onChange={(e) => setPresetPatternInput(e.target.value)}
+                          placeholder="Type or paste the repetitive text to be removed when this preset is clicked..."
+                          className="w-full p-2.5 rounded-lg bg-white/5 border border-white/15 text-white text-xs font-mono placeholder-white/30 focus:outline-none focus:border-[#FF79B0] leading-relaxed custom-scrollbar select-text"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddPresetOpen(false)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white/60 hover:text-white hover:bg-white/5 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveCustomPreset}
+                          className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#FF79B0] hover:bg-[#FF79B0]/90 text-slate-950 flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95 transition-all"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Save Preset</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Input Textarea */}
@@ -1256,9 +1762,20 @@ export const TerminologyManagerModal: React.FC<TerminologyManagerModalProps> = (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
                   {/* Matching Mode */}
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider block">
-                      Match Mode
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold text-white/60 uppercase tracking-wider block">
+                        Match Mode
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setIsMatchModeHelpOpen(true)}
+                        className="w-4 h-4 rounded-full bg-white/10 hover:bg-[#FF79B0]/20 text-white/50 hover:text-[#FF79B0] border border-white/15 hover:border-[#FF79B0]/40 flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-90"
+                        title="Click for Match Mode examples & guide"
+                        aria-label="Click for Match Mode examples & guide"
+                      >
+                        <HelpCircle className="w-3 h-3" />
+                      </button>
+                    </div>
                     <select
                       value={cleanerMode}
                       onChange={(e) => setCleanerMode(e.target.value as CleanerMatchMode)}
@@ -1646,6 +2163,197 @@ export const TerminologyManagerModal: React.FC<TerminologyManagerModalProps> = (
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* Match Mode Examples & Guide Dialog */}
+        {isMatchModeHelpOpen && (
+          <div 
+            className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150"
+            onClick={() => setIsMatchModeHelpOpen(false)}
+          >
+            <div 
+              className="bg-[#181B21] border border-white/15 rounded-2xl max-w-xl w-full p-4 sm:p-5 shadow-2xl space-y-3.5 max-h-[90vh] overflow-y-auto custom-scrollbar"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Dialog Header */}
+              <div className="flex items-center justify-between pb-2.5 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-[#FF79B0]/20 border border-[#FF79B0]/30 flex items-center justify-center text-[#FF79B0]">
+                    <HelpCircle className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">
+                      Match Mode Guide & Examples
+                    </h3>
+                    <p className="text-[11px] text-white/50">
+                      Choose how text is detected and removed from chapters.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMatchModeHelpOpen(false)}
+                  className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Guide Cards */}
+              <div className="space-y-3 text-xs">
+                
+                {/* 1. Contains Phrase */}
+                <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white text-sm">1. Contains Phrase</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-mono font-bold border border-rose-500/30">
+                      Removes whole line
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-black/60 border border-white/5 font-mono text-[11px] space-y-2">
+                    <div>
+                      <span className="text-white/40">Rule Text: </span>
+                      <span className="text-[#FF79B0] font-bold">patreon.com</span>
+                    </div>
+                    <div className="space-y-1 pt-1.5 border-t border-white/5">
+                      <div className="text-white/40 text-[10px] uppercase font-bold">Original Chapter Text:</div>
+                      <div className="text-white/80 pl-2 border-l-2 border-white/20 text-[10.5px] space-y-0.5">
+                        <div>"He drew his sword and stepped into the dungeon."</div>
+                        <div className="text-rose-300/80">"Support the translation team on <span className="text-[#FF79B0] underline font-bold">patreon.com</span>/novelteam to read 10 chapters ahead!"</div>
+                      </div>
+                    </div>
+                    <div className="space-y-1 pt-1 border-t border-white/5">
+                      <div className="text-emerald-400 text-[10px] uppercase font-bold">Result After Cleaning:</div>
+                      <div className="text-white/90 pl-2 border-l-2 border-emerald-500/40 text-[10.5px]">
+                        <div>"He drew his sword and stepped into the dungeon."</div>
+                        <div className="text-emerald-400/80 italic text-[10px]">↳ (The entire second line is erased)</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-white/50">
+                    <strong className="text-white/70">Best used for:</strong> Entire promotional sentences, sponsor links, or translator notes.
+                  </div>
+                </div>
+
+                {/* 2. Exact Match */}
+                <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white text-sm">2. Exact Match</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono font-bold border border-amber-500/30">
+                      Whole line match
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-black/60 border border-white/5 font-mono text-[11px] space-y-2">
+                    <div>
+                      <span className="text-white/40">Rule Text: </span>
+                      <span className="text-[#FF79B0] font-bold">NovelFire</span>
+                    </div>
+                    <div className="space-y-1 pt-1.5 border-t border-white/5">
+                      <div className="text-white/40 text-[10px] uppercase font-bold">Original Chapter Text:</div>
+                      <div className="text-white/80 pl-2 border-l-2 border-white/20 text-[10.5px] space-y-0.5">
+                        <div className="text-amber-300/90">"<span className="text-[#FF79B0] font-bold">NovelFire</span>"</div>
+                        <div>"The magic beast cast a spell called NovelFire and scorched the trees."</div>
+                      </div>
+                    </div>
+                    <div className="space-y-1 pt-1 border-t border-white/5">
+                      <div className="text-emerald-400 text-[10px] uppercase font-bold">Result After Cleaning:</div>
+                      <div className="text-white/90 pl-2 border-l-2 border-emerald-500/40 text-[10.5px]">
+                        <div className="text-emerald-400/80 italic text-[10px]">(Empty watermark line removed)</div>
+                        <div>"The magic beast cast a spell called NovelFire and scorched the trees."</div>
+                        <div className="text-emerald-400/80 italic text-[10px]">↳ (Story dialogue is safely preserved!)</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-white/50">
+                    <strong className="text-white/70">Best used for:</strong> Standalone watermarks or titles without accidentally deleting story text.
+                  </div>
+                </div>
+
+                {/* 3. Inline Strip */}
+                <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white text-sm">3. Inline Strip</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-mono font-bold border border-blue-500/30">
+                      Strip phrase inside line
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-black/60 border border-white/5 font-mono text-[11px] space-y-2">
+                    <div>
+                      <span className="text-white/40">Rule Text: </span>
+                      <span className="text-[#FF79B0] font-bold">[novelfire.net]</span>
+                    </div>
+                    <div className="space-y-1 pt-1.5 border-t border-white/5">
+                      <div className="text-white/40 text-[10px] uppercase font-bold">Original Chapter Text:</div>
+                      <div className="text-white/80 pl-2 border-l-2 border-white/20 text-[10.5px]">
+                        "Ren stepped into the arena <span className="text-[#FF79B0] line-through font-bold">[novelfire.net]</span> and called forth his contracted dragon."
+                      </div>
+                    </div>
+                    <div className="space-y-1 pt-1 border-t border-white/5">
+                      <div className="text-emerald-400 text-[10px] uppercase font-bold">Result After Cleaning:</div>
+                      <div className="text-white/90 pl-2 border-l-2 border-emerald-500/40 text-[10.5px]">
+                        <div>"Ren stepped into the arena and called forth his contracted dragon."</div>
+                        <div className="text-emerald-400/80 italic text-[10px]">↳ (Story sentence intact; only watermark cut out)</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-white/50">
+                    <strong className="text-white/70">Best used for:</strong> Watermarks or domain stamps injected inside legitimate sentences.
+                  </div>
+                </div>
+
+                {/* 4. Regex Expression */}
+                <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white text-sm">4. Regex Expression</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono font-bold border border-purple-500/30">
+                      Pattern matching
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-black/60 border border-white/5 font-mono text-[11px] space-y-2.5">
+                    <div className="space-y-1">
+                      <div className="text-white/40">
+                        Example A (Word count brackets):
+                      </div>
+                      <div className="text-white/70 pl-2 border-l-2 border-white/20 text-[10.5px]">
+                        Rule Pattern: <span className="text-[#FF79B0] font-bold">{`\\[\\s*\\d+\\s*words\\s*\\]`}</span>
+                        <div className="text-emerald-400 pt-0.5">
+                          ↳ Matches & deletes: <span className="text-white/90">[ 2450 words ]</span>, <span className="text-white/90">[ 1890 words ]</span>, <span className="text-white/90">[ 3012 words ]</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 pt-1.5 border-t border-white/5">
+                      <div className="text-white/40">
+                        Example B (Translator notes in brackets):
+                      </div>
+                      <div className="text-white/70 pl-2 border-l-2 border-white/20 text-[10.5px]">
+                        Rule Pattern: <span className="text-[#FF79B0] font-bold">{`\\[TL Note:.*?\\]`}</span>
+                        <div className="text-emerald-400 pt-0.5">
+                          ↳ Matches & deletes: <span className="text-white/90">[TL Note: Cultivation ranks are explained in chapter 5]</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-white/50">
+                    <strong className="text-white/70">Best used for:</strong> Dynamic text with changing numbers, dates, or symbols.
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Footer */}
+              <div className="pt-1 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsMatchModeHelpOpen(false)}
+                  className="px-4 py-1.5 rounded-xl bg-[#FF79B0] hover:bg-[#FF79B0]/90 text-slate-950 font-bold text-xs shadow-md transition-all cursor-pointer active:scale-95"
+                >
+                  Got it
+                </button>
+              </div>
+
+            </div>
           </div>
         )}
 

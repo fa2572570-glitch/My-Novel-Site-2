@@ -817,7 +817,10 @@ export default function App() {
   const [scrapingQueue, setScrapingQueue] = useState<{ number: number; url: string; status: 'idle' | 'fetching' | 'completed' | 'failed'; error?: string; title?: string }[]>([]);
   const [isScraping, setIsScraping] = useState(false);
   const [scrapeProgressIndex, setScrapeProgressIndex] = useState(0);
+  const [currentFetchingNumber, setCurrentFetchingNumber] = useState<number | null>(null);
   const isScrapingPaused = useRef(false);
+  const scrapeRunIdRef = useRef<number>(0);
+  const scrapeAbortControllerRef = useRef<AbortController | null>(null);
 
   // --- EDIT MODAL STATE ---
   const [editingChapter, setEditingChapter] = useState<Chapter | null>(null);
@@ -2167,6 +2170,16 @@ export default function App() {
         });
       }
 
+      // Stop any prior scrape if user recalculates
+      scrapeRunIdRef.current++;
+      isScrapingPaused.current = true;
+      if (scrapeAbortControllerRef.current) {
+        scrapeAbortControllerRef.current.abort();
+        scrapeAbortControllerRef.current = null;
+      }
+      setIsScraping(false);
+      setCurrentFetchingNumber(null);
+
       setScrapingQueue(queue);
       setScrapeProgressIndex(0);
       isScrapingPaused.current = false;
@@ -2176,35 +2189,68 @@ export default function App() {
     }
   };
 
-  const startScrapingLoop = async () => {
+  const startScrapingLoop = async (overrideStartIndex?: number) => {
     if (scrapingQueue.length === 0) return;
-    setIsScraping(true);
+
+    // Concurrency guard: increment runId so any prior or duplicate while loops immediately stop
+    const currentRunId = ++scrapeRunIdRef.current;
     isScrapingPaused.current = false;
+    setIsScraping(true);
 
-    let currentIndex = scrapeProgressIndex;
+    let currentIndex = typeof overrideStartIndex === 'number' ? overrideStartIndex : scrapeProgressIndex;
 
-    while (currentIndex < scrapingQueue.length && !isScrapingPaused.current) {
+    while (currentIndex < scrapingQueue.length) {
+      // Check if user paused, cleared, or started a different run
+      if (scrapeRunIdRef.current !== currentRunId || isScrapingPaused.current) {
+        break;
+      }
+
       const activeItem = scrapingQueue[currentIndex];
+      if (!activeItem) break;
 
-      // Update item status to fetching
-      setScrapingQueue(prev => prev.map((item, idx) => 
-        idx === currentIndex ? { ...item, status: 'fetching' } : item
+      // If already completed (e.g. from previous run), skip directly without re-fetching
+      if (activeItem.status === 'completed') {
+        currentIndex++;
+        setScrapeProgressIndex(currentIndex);
+        continue;
+      }
+
+      // Update current actively fetching chapter number
+      setCurrentFetchingNumber(activeItem.number);
+
+      // Update item status to fetching - match strictly by chapter number
+      setScrapingQueue(prev => prev.map(item => 
+        item.number === activeItem.number ? { ...item, status: 'fetching', error: undefined } : item
       ));
 
+      let wasRateLimited = false;
+
       try {
+        // Setup AbortController so Clear button can instantly cancel network requests
+        const controller = new AbortController();
+        scrapeAbortControllerRef.current = controller;
+
         const response = await fetch('/api/fetch-page', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: activeItem.url })
+          body: JSON.stringify({ url: activeItem.url }),
+          signal: controller.signal
         });
 
-        if (!response.ok) {
-          throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+        // If loop was cancelled while network request was in flight, abort cleanly
+        if (scrapeRunIdRef.current !== currentRunId || isScrapingPaused.current) {
+          break;
         }
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          if (response.status === 429) wasRateLimited = true;
+          throw new Error(data.error || `Server returned ${response.status}: ${response.statusText}`);
+        }
 
         if (data.error) {
+          if (data.error.includes('429')) wasRateLimited = true;
           throw new Error(data.error);
         }
 
@@ -2222,43 +2268,145 @@ export default function App() {
           return [...filtered, scrapedChapter].sort((a, b) => a.number - b.number);
         });
 
-        // Update item status to completed
-        setScrapingQueue(prev => prev.map((item, idx) => 
-          idx === currentIndex ? { ...item, status: 'completed', title: scrapedChapter.title } : item
+        // Update item status to completed - match strictly by activeItem.number
+        setScrapingQueue(prev => prev.map(item => 
+          item.number === activeItem.number ? { ...item, status: 'completed', title: scrapedChapter.title } : item
         ));
 
       } catch (err: any) {
+        if (err.name === 'AbortError' || scrapeRunIdRef.current !== currentRunId) {
+          break; // Stopped by user
+        }
+        if (err.message && err.message.includes('429')) wasRateLimited = true;
         console.error(`Scrape failed for chapter ${activeItem.number}:`, err);
-        setScrapingQueue(prev => prev.map((item, idx) => 
-          idx === currentIndex ? { ...item, status: 'failed', error: err.message || 'Unknown error' } : item
+        setScrapingQueue(prev => prev.map(item => 
+          item.number === activeItem.number ? { ...item, status: 'failed', error: err.message || 'Unknown error' } : item
         ));
       }
 
       currentIndex++;
       setScrapeProgressIndex(currentIndex);
 
-      // Polite delay between requests to avoid hitting the target server too aggressively, but only if not paused
-      if (currentIndex < scrapingQueue.length && !isScrapingPaused.current) {
-        await new Promise(resolve => setTimeout(resolve, 1200));
+      // Fast pacing: only 120ms between successful chapters, or 2s pause only if rate-limited
+      if (currentIndex < scrapingQueue.length && !isScrapingPaused.current && scrapeRunIdRef.current === currentRunId) {
+        const delay = wasRateLimited ? 2000 : 120;
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
 
-    setIsScraping(false);
-    if (currentIndex >= scrapingQueue.length) {
-      showCustomNotification("Range fetching sequence completed!", "success");
+    if (scrapeRunIdRef.current === currentRunId) {
+      setIsScraping(false);
+      setCurrentFetchingNumber(null);
+      if (currentIndex >= scrapingQueue.length) {
+        showCustomNotification("Range fetching sequence completed!", "success");
+      }
+    }
+  };
+
+  const retryFailedChapters = async () => {
+    if (isScraping) return;
+    const failedIndices = scrapingQueue
+      .map((item, idx) => item.status === 'failed' ? idx : -1)
+      .filter(idx => idx !== -1);
+
+    if (failedIndices.length === 0) {
+      showCustomNotification("No failed chapters to retry!", "info");
+      return;
+    }
+
+    // Reset status of all failed items to 'idle'
+    setScrapingQueue(prev => prev.map(item => 
+      item.status === 'failed' ? { ...item, status: 'idle', error: undefined } : item
+    ));
+
+    const firstFailedIndex = failedIndices[0];
+    setScrapeProgressIndex(firstFailedIndex);
+
+    showCustomNotification(`Retrying ${failedIndices.length} failed chapter(s)...`, "info");
+    // Brief delay to allow target server rate limits to cool down
+    setTimeout(() => {
+      startScrapingLoop(firstFailedIndex);
+    }, 250);
+  };
+
+  const retrySingleChapter = async (targetIndex: number) => {
+    if (isScraping) return;
+    const targetItem = scrapingQueue[targetIndex];
+    if (!targetItem) return;
+
+    setCurrentFetchingNumber(targetItem.number);
+    setScrapingQueue(prev => prev.map((item, idx) => 
+      idx === targetIndex ? { ...item, status: 'fetching', error: undefined } : item
+    ));
+
+    try {
+      const response = await fetch('/api/fetch-page', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: targetItem.url })
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || `Server returned ${response.status}: ${response.statusText}`);
+      }
+
+      if (data.error) throw new Error(data.error);
+
+      const scrapedChapter: Chapter = cleanGenericChapter({
+        id: `scraped-${targetItem.number}-${Date.now()}`,
+        number: targetItem.number,
+        title: data.title || `Chapter ${targetItem.number}`,
+        content: data.paragraphs && data.paragraphs.length > 0 ? data.paragraphs : ["No content extracted from this page."]
+      });
+
+      setChapters(prev => {
+        const filtered = prev.filter(c => c.number !== scrapedChapter.number);
+        return [...filtered, scrapedChapter].sort((a, b) => a.number - b.number);
+      });
+
+      setScrapingQueue(prev => prev.map((item, idx) => 
+        idx === targetIndex ? { ...item, status: 'completed', title: scrapedChapter.title } : item
+      ));
+
+      setCurrentFetchingNumber(null);
+      showCustomNotification(`Chapter ${targetItem.number} retrieved successfully!`, "success");
+    } catch (err: any) {
+      setCurrentFetchingNumber(null);
+      setScrapingQueue(prev => prev.map((item, idx) => 
+        idx === targetIndex ? { ...item, status: 'failed', error: err.message || 'Unknown error' } : item
+      ));
+      showCustomNotification(`Retry failed for Chapter ${targetItem.number}: ${err.message}`, "error");
     }
   };
 
   const pauseScraping = () => {
     isScrapingPaused.current = true;
+    scrapeRunIdRef.current++;
+    if (scrapeAbortControllerRef.current) {
+      scrapeAbortControllerRef.current.abort();
+      scrapeAbortControllerRef.current = null;
+    }
     setIsScraping(false);
+    setCurrentFetchingNumber(null);
   };
 
   const clearScrapeQueue = () => {
+    // 1. Immediately terminate active scraping loop
+    scrapeRunIdRef.current++;
+    isScrapingPaused.current = true;
+
+    // 2. Abort any network request currently in flight
+    if (scrapeAbortControllerRef.current) {
+      scrapeAbortControllerRef.current.abort();
+      scrapeAbortControllerRef.current = null;
+    }
+
+    // 3. Clear all scraping states
+    setIsScraping(false);
+    setCurrentFetchingNumber(null);
     setScrapingQueue([]);
     setScrapeProgressIndex(0);
-    setIsScraping(false);
-    isScrapingPaused.current = false;
   };
 
 
@@ -3258,88 +3406,232 @@ export default function App() {
               <button 
                 id="btn-calculate-range"
                 onClick={handleCalculateRange}
-                className="w-full py-2 rounded-lg font-bold text-sm border transition-all bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10"
-                style={{ borderColor: currentTheme.border }}
+                className="w-full py-2.5 rounded-xl font-bold text-xs border transition-all hover:brightness-105 active:scale-[0.99] flex items-center justify-center gap-1.5 cursor-pointer"
+                style={{ 
+                  borderColor: currentTheme.border, 
+                  color: currentTheme.text, 
+                  backgroundColor: `${currentTheme.text}08` 
+                }}
               >
                 1. Calculate Range Sequence
               </button>
 
               {/* Range Queue Results */}
-              {scrapingQueue.length > 0 && (
-                <div className="space-y-3 pt-2 border-t" style={{ borderColor: currentTheme.border }}>
-                  <div className="flex items-center justify-between text-xs font-bold uppercase" style={{ color: currentTheme.secondaryText }}>
-                    <span>Sequence Queue ({scrapingQueue.length} chapters)</span>
-                    <button id="btn-clear-queue" onClick={clearScrapeQueue} className="hover:underline">Clear</button>
-                  </div>
+              {scrapingQueue.length > 0 && (() => {
+                const completedCount = scrapingQueue.filter(item => item.status === 'completed').length;
+                const failedCount = scrapingQueue.filter(item => item.status === 'failed').length;
 
-                  {/* Scrape Actions */}
-                  <div className="flex gap-2">
-                    {!isScraping ? (
+                return (
+                  <div className="space-y-3 pt-2 border-t" style={{ borderColor: currentTheme.border }}>
+                    <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider" style={{ color: currentTheme.secondaryText }}>
+                      <span>Sequence Queue ({scrapingQueue.length} chapters)</span>
                       <button 
-                        id="btn-start-scrape"
-                        onClick={startScrapingLoop}
-                        className="flex-1 py-2 rounded-lg font-bold text-xs text-white flex items-center justify-center gap-1 hover:brightness-110"
-                        style={{ backgroundColor: currentTheme.accent }}
+                        id="btn-clear-queue" 
+                        onClick={clearScrapeQueue} 
+                        className="text-xs font-semibold text-red-400 hover:text-red-300 hover:underline px-2 py-0.5 rounded-md hover:bg-red-500/10 transition-all cursor-pointer flex items-center gap-1"
+                        title="Stop fetching and clear queue"
                       >
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        Start Copying
+                        Clear
                       </button>
-                    ) : (
-                      <button 
-                        id="btn-pause-scrape"
-                        onClick={pauseScraping}
-                        className="flex-1 py-2 rounded-lg font-bold text-xs bg-amber-600 text-white flex items-center justify-center gap-1 hover:bg-amber-700"
-                      >
-                        <Pause className="w-3.5 h-3.5 fill-current" />
-                        Pause
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Overall Progress Bar */}
-                  <div className="space-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span>Progress: {scrapeProgressIndex} / {scrapingQueue.length}</span>
-                      <span>{Math.round((scrapeProgressIndex / scrapingQueue.length) * 100)}%</span>
                     </div>
-                    <div className="w-full h-1.5 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+
+                    {/* Active Fetching Chapter Indicator */}
+                    {isScraping && currentFetchingNumber !== null && (
                       <div 
-                        className="h-full transition-all duration-300"
+                        className="flex items-center justify-between px-3 py-2 rounded-xl text-xs border transition-all shadow-sm backdrop-blur-sm"
                         style={{ 
-                          width: `${(scrapeProgressIndex / scrapingQueue.length) * 100}%`,
-                          backgroundColor: currentTheme.accent 
+                          backgroundColor: `${currentTheme.accent}12`,
+                          borderColor: `${currentTheme.accent}35`,
+                          color: currentTheme.text
                         }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Queue Scrape Progress Logs */}
-                  <div id="scrape-logs" className="max-h-48 overflow-y-auto space-y-1 bg-black/10 dark:bg-white/5 rounded-lg p-2 font-mono text-[10px]">
-                    {scrapingQueue.map((item, index) => (
-                      <div key={index} className="flex items-start justify-between py-0.5 border-b border-white/5">
-                        <span className="truncate pr-1 max-w-[150px]">
-                          Chapter {item.number} {item.title && `(${item.title})`}
+                      >
+                        <span className="flex items-center gap-2 font-bold">
+                          <span className="relative flex h-2 w-2">
+                            <span 
+                              className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+                              style={{ backgroundColor: currentTheme.accent }}
+                            />
+                            <span 
+                              className="relative inline-flex rounded-full h-2 w-2"
+                              style={{ backgroundColor: currentTheme.accent }}
+                            />
+                          </span>
+                          <span>Fetching Chapter {currentFetchingNumber}...</span>
                         </span>
-                        <span>
-                          {item.status === 'idle' && <span className="text-gray-500">Pending</span>}
-                          {item.status === 'fetching' && <span className="text-blue-400 animate-pulse">Copying...</span>}
-                          {item.status === 'completed' && <span className="text-green-500 font-bold">✓ Saved</span>}
-                          {item.status === 'failed' && <span className="text-red-500 font-bold" title={item.error}>✕ Error</span>}
+                        <span className="text-[10px] font-mono opacity-80" style={{ color: currentTheme.secondaryText }}>
+                          ({completedCount + 1} of {scrapingQueue.length})
                         </span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    )}
 
-              {/* Help tip */}
-              <div id="fetch-range-help" className="p-3 rounded-lg text-xs flex items-start gap-2 bg-blue-500/10 border border-blue-500/20 text-blue-400">
-                <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <div>
-                  <strong className="block mb-0.5">How it works:</strong>
-                  Our backend bypasses client-side CORS blocks to fetch pages sequentially. It extracts clean paragraphs and titles from standard web layouts, saving them to your device!
-                </div>
-              </div>
+                    {/* Failed Chapters Banner with One-Click Retry Button */}
+                    {failedCount > 0 && !isScraping && (
+                      <div 
+                        className="p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs animate-in fade-in duration-200"
+                        style={{
+                          backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                          borderColor: 'rgba(239, 68, 68, 0.25)',
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                          <div>
+                            <strong className="block text-red-400 font-bold leading-tight">{failedCount} Chapter{failedCount > 1 ? 's' : ''} Failed</strong>
+                            <span className="text-[10px] text-red-400/80">Rate limited or connection drop</span>
+                          </div>
+                        </div>
+                        <button
+                          id="btn-retry-failed-chapters"
+                          onClick={retryFailedChapters}
+                          className="px-2.5 py-1.5 rounded-lg font-bold text-xs bg-red-600/90 hover:bg-red-600 text-white flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer flex-shrink-0"
+                          title="Retry all failed chapters without re-fetching completed ones"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Retry Failed ({failedCount})</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Scrape Actions */}
+                    <div className="flex gap-2">
+                      {!isScraping ? (
+                        <>
+                          <button 
+                            id="btn-start-scrape"
+                            onClick={() => startScrapingLoop()}
+                            className="flex-1 py-2 px-3 rounded-xl font-bold text-xs text-white flex items-center justify-center gap-1.5 hover:brightness-110 active:scale-95 transition-all shadow-sm cursor-pointer"
+                            style={{ backgroundColor: currentTheme.accent }}
+                          >
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            <span>{completedCount > 0 && completedCount < scrapingQueue.length ? 'Resume Copying' : 'Start Copying'}</span>
+                          </button>
+                          {failedCount > 0 && (
+                            <button 
+                              id="btn-retry-failed-top"
+                              onClick={retryFailedChapters}
+                              className="py-2 px-3 rounded-xl font-bold text-xs bg-red-600/80 hover:bg-red-600 text-white flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
+                              title="Retry failed chapters only"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Retry Failed ({failedCount})</span>
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <button 
+                          id="btn-pause-scrape"
+                          onClick={pauseScraping}
+                          className="flex-1 py-2 px-3 rounded-xl font-bold text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
+                          title="Pause fetching"
+                        >
+                          <Pause className="w-3.5 h-3.5 fill-current" />
+                          <span>Pause {currentFetchingNumber !== null ? `(Fetching Ch. ${currentFetchingNumber})` : ''}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Overall Progress Bar */}
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex justify-between font-medium">
+                        <span style={{ color: currentTheme.secondaryText }}>
+                          Saved: <strong style={{ color: currentTheme.text }}>{completedCount}</strong> / {scrapingQueue.length}
+                          {currentFetchingNumber !== null && (
+                            <span className="font-bold ml-1.5 animate-pulse" style={{ color: currentTheme.accent }}>
+                              • Fetching Ch. {currentFetchingNumber}
+                            </span>
+                          )}
+                          {failedCount > 0 && (
+                            <span className="text-red-400 font-semibold ml-1.5">({failedCount} failed)</span>
+                          )}
+                        </span>
+                        <span className="font-mono text-[11px]" style={{ color: currentTheme.secondaryText }}>
+                          {Math.round((completedCount / scrapingQueue.length) * 100)}%
+                        </span>
+                      </div>
+                      <div 
+                        className="w-full h-1.5 rounded-full overflow-hidden flex"
+                        style={{ backgroundColor: `${currentTheme.text}12` }}
+                      >
+                        <div 
+                          className="h-full transition-all duration-300"
+                          style={{ 
+                            width: `${(completedCount / scrapingQueue.length) * 100}%`,
+                            backgroundColor: currentTheme.accent 
+                          }}
+                        />
+                        {failedCount > 0 && (
+                          <div 
+                            className="h-full bg-red-500/80 transition-all duration-300"
+                            style={{ 
+                              width: `${(failedCount / scrapingQueue.length) * 100}%`
+                            }}
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Queue Scrape Progress Logs */}
+                    <div 
+                      id="scrape-logs" 
+                      className="max-h-[480px] overflow-y-auto space-y-1 rounded-xl p-2 font-mono text-[10px] border transition-colors custom-scrollbar"
+                      style={{ 
+                        backgroundColor: `${currentTheme.text}06`,
+                        borderColor: currentTheme.border 
+                      }}
+                    >
+                      {scrapingQueue.map((item, index) => {
+                        const isCurrentlyFetching = isScraping && item.number === currentFetchingNumber;
+                        return (
+                          <div 
+                            key={index} 
+                            className="flex items-center justify-between py-1 px-1.5 rounded-lg border transition-all"
+                            style={isCurrentlyFetching ? {
+                              backgroundColor: `${currentTheme.accent}14`,
+                              borderColor: `${currentTheme.accent}45`,
+                              color: currentTheme.text
+                            } : {
+                              borderColor: `${currentTheme.border}`,
+                              color: currentTheme.text
+                            }}
+                          >
+                            <span className="truncate pr-2 max-w-[170px]" style={{ color: currentTheme.text }}>
+                              <strong style={{ color: currentTheme.text }}>Chapter {item.number}:</strong> {item.title ? item.title : `Chapter ${item.number}`}
+                            </span>
+                            <span className="flex-shrink-0 text-[10px]">
+                              {item.status === 'idle' && (
+                                <span style={{ color: currentTheme.secondaryText }}>Pending</span>
+                              )}
+                              {item.status === 'fetching' && (
+                                <span className="font-bold flex items-center gap-1.5 animate-pulse" style={{ color: currentTheme.accent }}>
+                                  <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: currentTheme.accent }} />
+                                  Fetching Ch. {item.number}...
+                                </span>
+                              )}
+                              {item.status === 'completed' && (
+                                <span className="text-emerald-500 font-bold">✓ Saved</span>
+                              )}
+                              {item.status === 'failed' && (
+                                <span className="flex items-center gap-1">
+                                  <span className="text-red-400 font-bold" title={item.error}>✕ Failed</span>
+                                  {!isScraping && (
+                                    <button
+                                      onClick={() => retrySingleChapter(index)}
+                                      className="px-1.5 py-0.5 rounded bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-white text-[9px] font-bold border border-red-500/30 transition-all cursor-pointer"
+                                      title="Retry only this chapter"
+                                    >
+                                      Retry
+                                    </button>
+                                  )}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

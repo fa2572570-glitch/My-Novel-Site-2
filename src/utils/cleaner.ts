@@ -246,8 +246,9 @@ export function executeAllCleanerRules(
 }
 
 export interface CleanerPreset {
+  id?: string;
   title: string;
-  description: string;
+  description?: string;
   pattern: string;
   mode: CleanerMatchMode;
 }
