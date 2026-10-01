@@ -591,34 +591,67 @@ export default function App() {
     }, 1000); // 1 second window to tap 3 times
   };
 
-  // Consolidated & debounced toggle for distraction-free mode (hiding application chapter header)
-  const lastDoubleTapActionRef = useRef<number>(0);
+  // Robust, unified double-click and mobile double-tap toggle for the top chapter bar
+  const lastTouchTimeRef = useRef<number>(0);
+  const lastTouchEndTimestampRef = useRef<number>(0);
+  const lastToggleActionTimestampRef = useRef<number>(0);
+
   const toggleDistractionFree = useCallback(() => {
     const now = Date.now();
-    // Guard against duplicate execution when touch generates both touchend & synthetic dblclick
-    if (now - lastDoubleTapActionRef.current < 400) {
+    // Guard against rapid duplicate execution (cooldown period of 450ms)
+    if (now - lastToggleActionTimestampRef.current < 450) {
       return;
     }
-    lastDoubleTapActionRef.current = now;
+    lastToggleActionTimestampRef.current = now;
+
+    // Clear any accidental word selection caused by double clicking text
+    if (window.getSelection) {
+      const sel = window.getSelection();
+      if (sel && sel.type === 'Range') {
+        sel.removeAllRanges();
+      }
+    }
 
     setIsDistractionFree(prev => !prev);
   }, []);
 
-  // Touch tracking for mobile double-tap to toggle distraction-free header bar
-  const lastTouchTimeRef = useRef<number>(0);
-  const handleCanvasTouchEnd = (e: React.TouchEvent) => {
+  const handleDoubleTapOrClick = useCallback((e: React.TouchEvent | React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('textarea')) {
+    // Don't trigger when clicking buttons, inputs, links, dropdowns, etc.
+    if (
+      target.closest('button') || 
+      target.closest('a') || 
+      target.closest('input') || 
+      target.closest('select') ||
+      target.closest('textarea') ||
+      target.closest('[role="button"]')
+    ) {
       return;
     }
-    const now = Date.now();
-    if (now - lastTouchTimeRef.current < 250) {
-      lastTouchTimeRef.current = 0;
-      toggleDistractionFree();
+
+    if ('touches' in e || 'changedTouches' in e) {
+      // Touch Event (Mobile / Tablet)
+      const now = Date.now();
+      lastTouchEndTimestampRef.current = now;
+      const interval = now - lastTouchTimeRef.current;
+      
+      // Standard mobile double-tap threshold: between 60ms and 380ms
+      if (interval > 60 && interval < 380) {
+        lastTouchTimeRef.current = 0;
+        toggleDistractionFree();
+      } else {
+        lastTouchTimeRef.current = now;
+      }
     } else {
-      lastTouchTimeRef.current = now;
+      // Mouse Double-Click Event (Desktop)
+      const now = Date.now();
+      // If a touch interaction occurred recently (within 800ms), ignore the synthetic mouse dblclick
+      if (now - lastTouchEndTimestampRef.current < 800) {
+        return;
+      }
+      toggleDistractionFree();
     }
-  };
+  }, [toggleDistractionFree]);
 
   // --- READING CONTROLS STATE ---
   const [theme, setTheme] = useState<'dark' | 'light' | 'sepia' | 'custom'>(() => {
@@ -3667,7 +3700,10 @@ export default function App() {
         {!isDistractionFree && (
           <header 
             id="reader-top-bar"
-            className="px-3 sm:px-6 py-3 border-b flex items-center justify-between flex-shrink-0 sticky top-0 z-30 select-none backdrop-blur-md shadow-sm transition-all gap-2 sm:gap-4"
+            onTouchEnd={handleDoubleTapOrClick}
+            onDoubleClick={handleDoubleTapOrClick}
+            title="Double-click or double-tap to hide chapter bar"
+            className="px-3 sm:px-6 py-3 border-b flex items-center justify-between flex-shrink-0 sticky top-0 z-30 select-none backdrop-blur-md shadow-sm transition-all gap-2 sm:gap-4 cursor-default"
             style={{ 
               borderColor: currentTheme.border,
               backgroundColor: currentTheme.bg === '#111827' || currentTheme.bg === '#000000' || currentTheme.bg.startsWith('#1') 
@@ -3980,14 +4016,8 @@ export default function App() {
           id="reader-canvas"
           ref={readerContainerRef}
           onClick={handleCanvasClick}
-          onTouchEnd={handleCanvasTouchEnd}
-          onDoubleClick={(e) => {
-            const target = e.target as HTMLElement;
-            if (target.closest('button') || target.closest('a') || target.closest('input') || target.closest('textarea')) {
-              return;
-            }
-            toggleDistractionFree();
-          }}
+          onTouchEnd={handleDoubleTapOrClick}
+          onDoubleClick={handleDoubleTapOrClick}
           className="flex-1 px-4 md:px-8 py-10 select-text outline-none relative transition-colors duration-300"
           style={frameEnabled ? frameStyles.outerStyle : {}}
           title="Double tap or double click to toggle Distraction-Free mode"
