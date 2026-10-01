@@ -381,7 +381,7 @@ export default function App() {
   });
 
   // --- UI LAYOUT STATE ---
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'reader' | 'add' | 'paste' | 'fetch'>('reader');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'chapters' | 'text'>('chapters');
@@ -2734,7 +2734,6 @@ export default function App() {
                 className="bg-transparent font-serif font-bold text-base sm:text-lg text-white focus:outline-none focus:ring-1 focus:ring-[#FF79B0] rounded-lg px-1.5 py-0.5 border border-transparent hover:border-white/10 transition-all max-w-[200px] sm:max-w-[240px]"
                 title="Click to rename book"
               />
-              <span className="text-[10px] text-white/40 pl-1.5 font-medium tracking-wide uppercase">Ebook Library</span>
             </div>
           </div>
           <button 
