@@ -27,9 +27,3 @@ html, body {
   background: rgba(255, 121, 176, 0.4);
 }
 
-/* Optimized Chapter Virtualization for High Chapter Counts & Fast GPU Rotations */
-.chapter-article {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 1800px;
-}
-
