@@ -182,13 +182,16 @@ const MemoizedChapterView = React.memo(({
   return (
     <article 
       id={`chap-article-${chap.id}`}
+      data-chapter-id={chap.id}
       data-chapter-index={idx}
       className={frameEnabled ? `chapter-article ${frameStyles.cardClass} mb-12 scroll-mt-20` : "chapter-article relative transition-all duration-300 mb-12 select-text scroll-mt-20"}
       aria-hidden={idx < currentChapterIndex ? "true" : undefined}
       style={{
         ...(frameEnabled ? frameStyles.cardStyle : {}),
-        paddingBottom: 'var(--p-margin)'
-      }}
+        paddingBottom: 'var(--p-margin)',
+        contentVisibility: 'auto',
+        containIntrinsicSize: 'auto 1800px'
+      } as React.CSSProperties}
     >
       {frameEnabled && frameBorder === 'ornament' && (
         <div 
@@ -378,6 +381,13 @@ export default function App() {
     }
 
     return 0;
+  });
+
+  // Virtual Sliding Window Range: ±3 chapters around current chapter
+  const [renderedRange, setRenderedRange] = useState<{ start: number; end: number }>(() => {
+    const start = Math.max(0, currentChapterIndex - 3);
+    const end = Math.min(chapters.length - 1, currentChapterIndex + 3);
+    return { start, end };
   });
 
   // --- UI LAYOUT STATE ---
@@ -969,90 +979,91 @@ export default function App() {
   // --- LOCAL STATE / FLAGS ---
   const isScrollingFromObserver = useRef(false);
   const isProgrammaticScrolling = useRef(false);
+  const isOrientationChangingRef = useRef(false);
+  const orientationSettleTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const updateActiveChapterFromViewportRef = useRef<() => void>(() => {});
 
-  // --- SCROLL POSITION PRESERVATION ENGINE ---
-  const withScrollPreservation = (fn: () => void) => {
-    const activeChap = chapters[currentChapterIndex];
-    const activeChapId = activeChap ? activeChap.id : null;
-    let relativeOffset = 0;
-    let targetElement: HTMLElement | null = null;
-    const isWinScroll = infiniteScroll && !listenMode;
-    const originalScrollY = isWinScroll ? window.scrollY : (readerFrameRef.current?.scrollTop || 0);
+  // Cache measured chapter heights for accurate spacer calculation in sliding window virtualization
+  const chapterHeightCacheRef = useRef<Map<string, number>>(new Map());
 
-    if (activeChapId) {
-      const targetId = isWinScroll 
-        ? `chap-article-${activeChapId}` 
-        : `single-chapter-view`;
-      targetElement = document.getElementById(targetId) || document.getElementById(`reader-canvas`);
-      if (targetElement) {
-        relativeOffset = targetElement.getBoundingClientRect().top;
+  const measureRenderedChapters = useCallback(() => {
+    if (typeof document === 'undefined') return;
+    const articles = document.querySelectorAll('.chapter-article');
+    articles.forEach(art => {
+      const chapId = art.getAttribute('data-chapter-id');
+      if (chapId) {
+        const rect = art.getBoundingClientRect();
+        if (rect.height > 60) {
+          chapterHeightCacheRef.current.set(chapId, rect.height);
+        }
       }
+    });
+  }, []);
+
+  const isExplicitChapterJumpRef = useRef(false);
+
+  const jumpToChapter = useCallback((targetIdx: number) => {
+    if (targetIdx < 0 || targetIdx >= chapters.length) return;
+
+    isProgrammaticScrolling.current = true;
+    isExplicitChapterJumpRef.current = true;
+
+    setCurrentChapterIndex(targetIdx);
+    setRenderedRange({
+      start: targetIdx,
+      end: Math.min(chapters.length - 1, targetIdx + 5)
+    });
+
+    setIsSidebarOpen(false);
+    setIsQuickNavOpen(false);
+
+    if (!useWindowScrolling) {
+      if (readerFrameRef.current) {
+        readerFrameRef.current.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+      }
+      setTimeout(() => {
+        isProgrammaticScrolling.current = false;
+        isExplicitChapterJumpRef.current = false;
+      }, 150);
+      return;
     }
 
-    // Set programmatic scroll lock to prevent observer/scroll listeners during reflow
-    isProgrammaticScrolling.current = true;
+    // Target chapter is now rendered as the very first element (start = targetIdx),
+    // so scrolling to top (0) places the user cleanly at Chapter Title and Paragraph 1!
+    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
 
-    // Call state updater
-    fn();
-
-    // Restoration function
-    const restore = () => {
-      if (activeChapId) {
-        const targetId = isWinScroll 
-          ? `chap-article-${activeChapId}` 
-          : `single-chapter-view`;
-        const target = document.getElementById(targetId) || document.getElementById(`reader-canvas`);
-        if (target) {
-          if (isWinScroll) {
-            const currentRectTop = target.getBoundingClientRect().top;
-            const delta = currentRectTop - relativeOffset;
-            window.scrollBy(0, delta);
-          } else {
-            const frameEl = readerFrameRef.current;
-            if (frameEl) {
-              const currentRectTop = target.getBoundingClientRect().top;
-              const delta = currentRectTop - relativeOffset;
-              frameEl.scrollBy(0, delta);
-            }
-          }
-        }
-      } else {
-        if (isWinScroll) {
-          window.scrollTo(0, originalScrollY);
-        } else if (readerFrameRef.current) {
-          readerFrameRef.current.scrollTop = originalScrollY;
-        }
-      }
-    };
-
-    // Restore multiple times during the transition to ensure no visible jump
-    const delays = [0, 50, 100, 150, 200, 250, 300, 350, 400];
-    delays.forEach(delay => {
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
       setTimeout(() => {
-        restore();
-        if (delay === 400) {
-          isProgrammaticScrolling.current = false;
+        window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+        isProgrammaticScrolling.current = false;
+        isExplicitChapterJumpRef.current = false;
+        if (updateActiveChapterFromViewportRef.current) {
+          updateActiveChapterFromViewportRef.current();
         }
-      }, delay);
+      }, 120);
     });
+  }, [chapters, useWindowScrolling]);
+
+  // --- SCROLL POSITION PRESERVATION ENGINE (Safe lock, zero runaway scroll) ---
+  const withScrollPreservation = (fn: () => void) => {
+    isProgrammaticScrolling.current = true;
+    fn();
+    setTimeout(() => {
+      isProgrammaticScrolling.current = false;
+    }, 150);
   };
 
   const handleSetSidebarOpen = (open: boolean) => {
-    withScrollPreservation(() => {
-      setIsSidebarOpen(open);
-    });
+    setIsSidebarOpen(open);
   };
 
   const handleSetDistractionFree = (df: boolean) => {
-    withScrollPreservation(() => {
-      setIsDistractionFree(df);
-    });
+    setIsDistractionFree(df);
   };
 
   const handleSetReadingSettingsOpen = (open: boolean) => {
-    withScrollPreservation(() => {
-      setIsReadingSettingsOpen(open);
-    });
+    setIsReadingSettingsOpen(open);
   };
 
   // Keep active chapter index synchronized with the active chapter ID when chapters array changes
@@ -1137,13 +1148,97 @@ export default function App() {
     localStorage.setItem('novel_page_width', pageWidth);
   }, [pageWidth]);
 
+  // Find the exact paragraph/heading currently nearest the focal reading line (~25% down the viewport)
+  const getFocalReadingElement = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    const viewportHeight = window.innerHeight;
+    const focalY = Math.min(180, Math.max(100, viewportHeight * 0.25));
+
+    const paras = document.querySelectorAll('.chapter-article p, .chapter-article h3');
+    let bestEl: HTMLElement | null = null;
+    let minDistance = Number.POSITIVE_INFINITY;
+
+    for (const p of Array.from(paras) as HTMLElement[]) {
+      const rect = p.getBoundingClientRect();
+      if (rect.top <= focalY && rect.bottom >= focalY) {
+        return { el: p, offsetFromFocal: focalY - rect.top };
+      }
+      const dist = Math.abs(rect.top - focalY);
+      if (dist < minDistance) {
+        minDistance = dist;
+        bestEl = p;
+      }
+    }
+
+    if (bestEl) {
+      const rect = bestEl.getBoundingClientRect();
+      return { el: bestEl, offsetFromFocal: focalY - rect.top };
+    }
+    return null;
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Clean stale #chapter- hash so Chrome on Android doesn't native-jump on orientation change
+    if (window.location.hash && window.location.hash.startsWith('#chapter-')) {
+      try {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+      } catch {
+        // ignore
+      }
+    }
+
     const mediaQuery = window.matchMedia('(orientation: landscape)');
+
     const handleOrientationChange = () => {
+      // 1. Capture the exact reading paragraph before reflow begins
+      const anchor = getFocalReadingElement();
+      chapterHeightCacheRef.current.clear();
+
+      // 2. Lock scroll observers & programmatic scroll during rotation
+      isOrientationChangingRef.current = true;
+      isProgrammaticScrolling.current = true;
+
       const isL = mediaQuery.matches || window.innerWidth > window.innerHeight;
       setIsLandscape(isL);
+
+      if (orientationSettleTimerRef.current) {
+        clearTimeout(orientationSettleTimerRef.current);
+      }
+
+      // 3. Staggered scroll repositioning as tablet orientation reflow completes
+      const restoreAnchor = () => {
+        if (anchor && anchor.el && document.body.contains(anchor.el)) {
+          const viewportHeight = window.innerHeight;
+          const focalY = Math.min(180, Math.max(100, viewportHeight * 0.25));
+          const currentRect = anchor.el.getBoundingClientRect();
+          const targetY = window.scrollY + currentRect.top - (focalY - (anchor.offsetFromFocal || 0));
+
+          if (Math.abs(currentRect.top - focalY) > 3) {
+            window.scrollTo({
+              top: Math.max(0, targetY),
+              behavior: 'instant' as ScrollBehavior
+            });
+          }
+        }
+      };
+
+      [30, 80, 160, 260, 360].forEach(delay => {
+        setTimeout(restoreAnchor, delay);
+      });
+
+      // 4. Unlock scroll observers and update active chapter once orientation is stable
+      orientationSettleTimerRef.current = setTimeout(() => {
+        isOrientationChangingRef.current = false;
+        isProgrammaticScrolling.current = false;
+        measureRenderedChapters();
+        if (updateActiveChapterFromViewportRef.current) {
+          updateActiveChapterFromViewportRef.current();
+        }
+      }, 420);
     };
+
     if (mediaQuery.addEventListener) {
       mediaQuery.addEventListener('change', handleOrientationChange);
     } else {
@@ -1151,6 +1246,7 @@ export default function App() {
     }
     window.addEventListener('resize', handleOrientationChange);
     window.addEventListener('orientationchange', handleOrientationChange);
+
     return () => {
       if (mediaQuery.removeEventListener) {
         mediaQuery.removeEventListener('change', handleOrientationChange);
@@ -1159,8 +1255,11 @@ export default function App() {
       }
       window.removeEventListener('resize', handleOrientationChange);
       window.removeEventListener('orientationchange', handleOrientationChange);
+      if (orientationSettleTimerRef.current) {
+        clearTimeout(orientationSettleTimerRef.current);
+      }
     };
-  }, []);
+  }, [getFocalReadingElement]);
 
   // Automatic sheet width adaptation: 100% in landscape, restores to original setting in vertical/portrait
   const prevIsLandscapeRef = useRef<boolean>(isLandscape);
@@ -1353,12 +1452,15 @@ export default function App() {
   // Determine which chapter is currently visible in the viewport and update active index
   const updateActiveChapterFromViewport = useCallback(() => {
     if (!useWindowScrolling || chapters.length === 0) return;
-    if (isProgrammaticScrolling.current) return;
+    if (isProgrammaticScrolling.current || isOrientationChangingRef.current) return;
+
+    updateActiveChapterFromViewportRef.current = updateActiveChapterFromViewport;
 
     if (viewportUpdateTimeoutRef.current) {
       clearTimeout(viewportUpdateTimeoutRef.current);
     }
     viewportUpdateTimeoutRef.current = setTimeout(() => {
+      measureRenderedChapters();
       const articles = document.querySelectorAll('.chapter-article');
       if (articles.length === 0) return;
 
@@ -1418,9 +1520,19 @@ export default function App() {
       if (bestIndex !== -1 && bestIndex !== currentChapterIndexRef.current) {
         isScrollingFromObserver.current = true;
         setCurrentChapterIndex(bestIndex);
+        setRenderedRange(prev => {
+          const targetEnd = Math.min(chapters.length - 1, bestIndex + 5);
+          const targetStart = Math.max(0, Math.min(prev.start, bestIndex - 2));
+          return { start: targetStart, end: targetEnd };
+        });
       }
     }, 150);
   }, [useWindowScrolling, chapters]);
+
+  // Keep ref up to date
+  useEffect(() => {
+    updateActiveChapterFromViewportRef.current = updateActiveChapterFromViewport;
+  }, [updateActiveChapterFromViewport]);
 
   // Load last scroll position or scroll to top on chapter change
   useEffect(() => {
@@ -1433,8 +1545,7 @@ export default function App() {
     }
 
     if (infiniteScroll) {
-      if (isScrollingFromObserver.current) {
-        // Change was triggered by natural scrolling - do NOT scroll/jump
+      if (isScrollingFromObserver.current || isOrientationChangingRef.current || isExplicitChapterJumpRef.current) {
         isScrollingFromObserver.current = false;
         return;
       }
@@ -1442,7 +1553,11 @@ export default function App() {
       const targetElement = document.getElementById(`chap-article-${chapters[currentChapterIndex]?.id}`);
       if (targetElement) {
         isProgrammaticScrolling.current = true;
-        targetElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+        const targetScrollY = window.scrollY + targetElement.getBoundingClientRect().top - 65;
+        window.scrollTo({
+          top: Math.max(0, targetScrollY),
+          behavior: 'instant' as ScrollBehavior
+        });
         setTimeout(() => {
           isProgrammaticScrolling.current = false;
           updateActiveChapterFromViewport();
@@ -1485,14 +1600,50 @@ export default function App() {
     let lastScrollTime = 0;
 
     const executeScrollLogic = () => {
+      if (isProgrammaticScrolling.current || isOrientationChangingRef.current) return;
+      measureRenderedChapters();
+
       if (useWindowScrolling) {
         const scrollTop = window.scrollY || document.documentElement.scrollTop;
         if (isInfiniteScrollingMode) {
           localStorage.setItem(`scroll_pos_infinite`, scrollTop.toString());
         }
-        if (!isProgrammaticScrolling.current) {
-          updateActiveChapterFromViewport();
+
+        // If user scrolls near the top (within 80px) and there are previous chapters:
+        if (scrollTop < 80 && renderedRange.start > 0 && !isProgrammaticScrolling.current) {
+          const prevStart = renderedRange.start;
+          const newStart = Math.max(0, prevStart - 2);
+          if (newStart < prevStart) {
+            const firstArticle = document.querySelector('.chapter-article') as HTMLElement;
+            const oldTop = firstArticle ? firstArticle.getBoundingClientRect().top : 0;
+            
+            setRenderedRange(prev => ({
+              start: newStart,
+              end: prev.end
+            }));
+
+            requestAnimationFrame(() => {
+              if (firstArticle) {
+                const newTop = firstArticle.getBoundingClientRect().top;
+                const delta = newTop - oldTop;
+                if (delta > 0) {
+                  window.scrollBy({ top: delta, behavior: 'instant' as ScrollBehavior });
+                }
+              }
+            });
+          }
         }
+
+        // If user scrolls near the bottom (within 1400px of page bottom) and there are more chapters:
+        const scrollBottom = document.documentElement.scrollHeight - (scrollTop + window.innerHeight);
+        if (scrollBottom < 1400 && renderedRange.end < chapters.length - 1 && !isProgrammaticScrolling.current) {
+          setRenderedRange(prev => ({
+            start: prev.start,
+            end: Math.min(chapters.length - 1, prev.end + 3)
+          }));
+        }
+
+        updateActiveChapterFromViewport();
       } else {
         if (!readerFrameRef.current) return;
         const scrollTop = readerFrameRef.current.scrollTop;
@@ -1505,6 +1656,7 @@ export default function App() {
     };
 
     const handleScroll = () => {
+      if (isProgrammaticScrolling.current || isOrientationChangingRef.current) return;
       const now = Date.now();
       if (now - lastScrollTime < 150) {
         if (scrollTimeout) clearTimeout(scrollTimeout);
@@ -1520,7 +1672,6 @@ export default function App() {
 
     if (useWindowScrolling) {
       window.addEventListener('scroll', handleScroll, { passive: true });
-      window.addEventListener('resize', handleScroll, { passive: true });
     } else {
       const frameEl = readerFrameRef.current;
       if (frameEl) {
@@ -1531,7 +1682,6 @@ export default function App() {
     return () => {
       if (scrollTimeout) clearTimeout(scrollTimeout);
       window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleScroll);
       if (readerFrameRef.current) {
         readerFrameRef.current.removeEventListener('scroll', handleScroll);
       }
@@ -2914,7 +3064,7 @@ export default function App() {
                                 id={`search-chapter-item-${chap.id}`}
                                 key={chap.id}
                                 onClick={() => {
-                                  setCurrentChapterIndex(chapterIdx);
+                                  jumpToChapter(chapterIdx);
                                 }}
                                 className={`group w-full text-left p-4 rounded-2xl transition-all duration-200 relative overflow-hidden cursor-pointer ${
                                   isSelected 
@@ -3107,8 +3257,8 @@ export default function App() {
                     <div id="chapters-list" className="space-y-3 flex-1 overflow-y-auto pr-1 custom-scrollbar">
                       {filteredChapters.map((chap, index) => {
                         const chapterIdx = chapters.indexOf(chap);
-                        const isSelected = !isInfiniteScrollingMode && currentChapterIndex === index;
-                        const isHighlighted = isInfiniteScrollingMode && currentChapterIndex === index;
+                        const isSelected = !isInfiniteScrollingMode && currentChapterIndex === chapterIdx;
+                        const isHighlighted = isInfiniteScrollingMode && currentChapterIndex === chapterIdx;
                         const isChecked = selectedChapterIds.includes(chap.id);
 
                         let displayTitle = chap.title;
@@ -3140,7 +3290,7 @@ export default function App() {
                                   }
                                 });
                               } else {
-                                setCurrentChapterIndex(chapterIdx);
+                                jumpToChapter(chapterIdx);
                               }
                             }}
                             className={`group w-full text-left p-4 rounded-2xl transition-all duration-200 relative overflow-hidden cursor-pointer ${
@@ -3862,7 +4012,7 @@ export default function App() {
                     disabled={currentChapterIndex <= 0}
                     onClick={() => {
                       if (currentChapterIndex > 0) {
-                        setCurrentChapterIndex(currentChapterIndex - 1);
+                        jumpToChapter(currentChapterIndex - 1);
                       }
                     }}
                     className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
@@ -3879,7 +4029,7 @@ export default function App() {
                     disabled={currentChapterIndex >= chapters.length - 1}
                     onClick={() => {
                       if (currentChapterIndex < chapters.length - 1) {
-                        setCurrentChapterIndex(currentChapterIndex + 1);
+                        jumpToChapter(currentChapterIndex + 1);
                       }
                     }}
                     className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
@@ -3912,9 +4062,7 @@ export default function App() {
                         <button
                           key={chap.id}
                           onClick={() => {
-                            setCurrentChapterIndex(index);
-                            setIsQuickNavOpen(false);
-                            setQuickNavSearch('');
+                            jumpToChapter(index);
                           }}
                           className={`flex-shrink-0 px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer border ${
                             isCurrent
@@ -3967,9 +4115,7 @@ export default function App() {
                         key={chap.id}
                         id={`quick-nav-item-${chap.id}`}
                         onClick={() => {
-                          setCurrentChapterIndex(index);
-                          setIsQuickNavOpen(false);
-                          setQuickNavSearch('');
+                          jumpToChapter(index);
                         }}
                         className={`w-full text-left p-3.5 rounded-xl text-xs transition-all flex items-center justify-between cursor-pointer ${
                           isSelected
@@ -4067,40 +4213,58 @@ export default function App() {
                 '--single-title-font-size': `${activeFontSize * 1.2}px`
               } as React.CSSProperties}
             >
-              {/* INFINITE SCROLL RENDER BLOCK */}
-              {useWindowScrolling ? (
-                <div id="infinite-scroll-container" className="space-y-0">
-                  {(listenMode ? chapters.slice(currentChapterIndex) : chapters).map((chap) => {
-                    const idx = chapters.findIndex(c => c.id === chap.id);
-                    const isFirstRendered = listenMode 
-                      ? chap.id === chapters[currentChapterIndex]?.id 
-                      : idx === 0;
-                    return (
-                      <MemoizedChapterView
-                        key={chap.id}
-                        chap={chap}
-                        idx={idx}
-                        isFirstRendered={isFirstRendered}
-                        currentChapterIndex={currentChapterIndex}
-                        frameEnabled={frameEnabled}
-                        frameStyles={frameStyles}
-                        frameBorder={frameBorder}
-                        currentTheme={currentTheme}
-                        bookTitle={bookTitle}
-                        highlightedParagraph={highlightedParagraph}
-                        renderTransformedText={renderTransformedText}
-                        activeTTSPosition={activeTTSPosition}
-                        isTTSActive={isTTSActive}
-                        highlightMode={ttsSettings.highlightMode}
-                        onSentenceClick={isTapToListenEnabled ? handleSentenceClick : undefined}
-                      />
-                    );
-                  })}
-                  <div ref={chaptersEndRef} className="text-center py-12 select-none" style={{ color: currentTheme.secondaryText }}>
-                    <p className="text-xs font-mono uppercase tracking-widest">End of Library • Add more chapters in Sidebar</p>
+              {/* INFINITE SCROLL RENDER BLOCK (Sliding Window: ±3 Chapters) */}
+              {useWindowScrolling ? (() => {
+                const windowStart = listenMode 
+                  ? currentChapterIndex 
+                  : renderedRange.start;
+                const windowEnd = listenMode
+                  ? Math.min(chapters.length - 1, currentChapterIndex + 3)
+                  : renderedRange.end;
+                const windowChapters = chapters.slice(windowStart, windowEnd + 1);
+
+                return (
+                  <div id="infinite-scroll-container" className="space-y-0">
+                    {windowChapters.map((chap) => {
+                      const idx = chapters.findIndex(c => c.id === chap.id);
+                      const isFirstRendered = listenMode 
+                        ? chap.id === chapters[currentChapterIndex]?.id 
+                        : chap.id === windowChapters[0]?.id;
+                      return (
+                        <MemoizedChapterView
+                          key={chap.id}
+                          chap={chap}
+                          idx={idx}
+                          isFirstRendered={isFirstRendered}
+                          currentChapterIndex={currentChapterIndex}
+                          frameEnabled={frameEnabled}
+                          frameStyles={frameStyles}
+                          frameBorder={frameBorder}
+                          currentTheme={currentTheme}
+                          bookTitle={bookTitle}
+                          highlightedParagraph={highlightedParagraph}
+                          renderTransformedText={renderTransformedText}
+                          activeTTSPosition={activeTTSPosition}
+                          isTTSActive={isTTSActive}
+                          highlightMode={ttsSettings.highlightMode}
+                          onSentenceClick={isTapToListenEnabled ? handleSentenceClick : undefined}
+                        />
+                      );
+                    })}
+
+                    {/* End of library indicator - ONLY when actually at the end of library */}
+                    {renderedRange.end >= chapters.length - 1 ? (
+                      <div ref={chaptersEndRef} className="text-center py-12 select-none" style={{ color: currentTheme.secondaryText }}>
+                        <p className="text-xs font-mono uppercase tracking-widest">End of Library • Add more chapters in Sidebar</p>
+                      </div>
+                    ) : (
+                      <div ref={chaptersEndRef} className="text-center py-8 select-none opacity-40 font-mono text-xs">
+                        <span>• • •</span>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ) : (
+                );
+              })() : (
                 /* SINGLE CHAPTER RENDER BLOCK */
                 <article 
                   id="single-chapter-view" 
@@ -4177,7 +4341,7 @@ export default function App() {
                     <button 
                       id="prev-chapter-btn"
                       disabled={currentChapterIndex === 0}
-                      onClick={() => setCurrentChapterIndex(prev => Math.max(0, prev - 1))}
+                      onClick={() => jumpToChapter(Math.max(0, currentChapterIndex - 1))}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border transition-all hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none"
                       style={{ borderColor: currentTheme.border }}
                     >
@@ -4190,7 +4354,7 @@ export default function App() {
                     <button 
                       id="next-chapter-btn"
                       disabled={currentChapterIndex === chapters.length - 1}
-                      onClick={() => setCurrentChapterIndex(prev => Math.min(chapters.length - 1, prev + 1))}
+                      onClick={() => jumpToChapter(Math.min(chapters.length - 1, currentChapterIndex + 1))}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border transition-all hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-30 disabled:pointer-events-none"
                       style={{ borderColor: currentTheme.border }}
                     >
