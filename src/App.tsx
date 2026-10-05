@@ -407,7 +407,7 @@ export default function App() {
     if (!activeChap) return;
     setReadingHistory(prev => {
       const filtered = prev.filter(id => id !== activeChap.id);
-      const next = [activeChap.id, ...filtered].slice(0, 8);
+      const next = [activeChap.id, ...filtered].slice(0, 15);
       try {
         localStorage.setItem('novel_reading_history', JSON.stringify(next));
       } catch {
@@ -3902,10 +3902,10 @@ export default function App() {
                       <History className="w-3.5 h-3.5 text-[#FF79B0]" />
                       <span>Reading History</span>
                     </span>
-                    <span className="text-[10px] text-white/40 font-normal">Recent {Math.min(recentChapters.length, 4)} chapters</span>
+                    <span className="text-[10px] text-white/40 font-normal">Recent {Math.min(recentChapters.length, 10)} chapters</span>
                   </div>
                   <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 custom-scrollbar">
-                    {recentChapters.slice(0, 4).map((chap) => {
+                    {recentChapters.slice(0, 10).map((chap) => {
                       const index = chapters.findIndex(c => c.id === chap.id);
                       const isCurrent = index === currentChapterIndex;
                       return (
