@@ -11,7 +11,8 @@ import {
   synthesizeChunk,
   preloadChunks,
   getTTSCacheStats,
-  clearTTSCache
+  clearTTSCache,
+  getOrSynthesizeChapterAudioBuffers
 } from './server/ttsService';
 
 const isProd = process.env.NODE_ENV === 'production';
@@ -437,6 +438,31 @@ async function startServer() {
       return res.json({ scheduled: 0 });
     } catch (error: any) {
       return res.status(500).json({ error: error.message || 'Preload failed' });
+    }
+  });
+
+  // 7. Export Consolidated Single MP3 Audio for a Chapter
+  app.post('/api/tts/export-chapter-mp3', async (req, res) => {
+    try {
+      const { chapter, novelId, voice, pitch } = req.body;
+      if (!chapter || !chapter.id || !chapter.content) {
+        return res.status(400).json({ error: 'Chapter with id and content is required' });
+      }
+
+      const { buffer, durationMs, filename } = await getOrSynthesizeChapterAudioBuffers(
+        chapter,
+        novelId || 'novel',
+        { voice, pitch }
+      );
+
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', buffer.length);
+      res.setHeader('X-Audio-Duration-Ms', durationMs.toString());
+      return res.send(buffer);
+    } catch (error: any) {
+      console.error('Error in /api/tts/export-chapter-mp3:', error);
+      return res.status(500).json({ error: error.message || 'Failed to export chapter MP3' });
     }
   });
 

@@ -298,22 +298,42 @@ export async function synthesizeChunk(
 
     let tts: MsEdgeTTS | null = null;
     try {
-      tts = new MsEdgeTTS();
-      await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, {
-        wordBoundaryEnabled: true,
-        sentenceBoundaryEnabled: true
-      });
-
       const safeText = escapeXmlForSSML(chunk.text);
-      const res = await tts.toFile(tempDir, safeText, { pitch });
+      let res: { audioFilePath: string; metadataFilePath: string | null } | null = null;
+      let lastError: any = null;
 
-      // Verify files generated
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          if (!tts) {
+            tts = new MsEdgeTTS({ connectionTimeoutMs: 15000 });
+            await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, {
+              wordBoundaryEnabled: true,
+              sentenceBoundaryEnabled: true
+            });
+          }
+          res = await tts.toFile(tempDir, safeText, { pitch });
+          if (res?.audioFilePath && fs.existsSync(res.audioFilePath) && fs.statSync(res.audioFilePath).size > 0) {
+            break;
+          }
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`Edge TTS attempt ${attempt} failed for chunk ${hash}:`, err?.message || err);
+          if (tts) {
+            try { tts.close(); } catch {}
+            tts = null;
+          }
+          if (attempt < 2) {
+            await new Promise(r => setTimeout(r, 400));
+          }
+        }
+      }
+
+      if (!res || !res.audioFilePath || !fs.existsSync(res.audioFilePath) || fs.statSync(res.audioFilePath).size === 0) {
+        throw new Error(lastError?.message || 'Edge TTS did not generate audio output file');
+      }
+
       const tempAudio = res.audioFilePath;
       const tempMeta = res.metadataFilePath;
-
-      if (!tempAudio || !fs.existsSync(tempAudio) || fs.statSync(tempAudio).size === 0) {
-        throw new Error('Edge TTS did not generate audio output file');
-      }
 
       // Move audio to permanent audio cache
       fs.copyFileSync(tempAudio, audioFile);
@@ -611,4 +631,39 @@ export function clearTTSCache(): { removedFiles: number; freedBytes: number } {
     }
   }
   return { removedFiles, freedBytes };
+}
+
+// Concatenates all chunk MP3 buffers for a chapter into a single consolidated audio Buffer
+export async function getOrSynthesizeChapterAudioBuffers(
+  chapter: { id: string; number?: number; title: string; content: string[] },
+  novelId: string = 'novel',
+  options?: { voice?: string; pitch?: string }
+): Promise<{ buffer: Buffer; durationMs: number; filename: string }> {
+  const plan = planChapterChunks(chapter, novelId, options);
+  const buffers: Buffer[] = [];
+  let totalDurationMs = 0;
+
+  for (const chunk of plan.chunks) {
+    const meta = await synthesizeChunk(chunk);
+    const audioFilePath = path.join(AUDIO_CACHE_DIR, `${meta.hash}.mp3`);
+    if (fs.existsSync(audioFilePath)) {
+      buffers.push(fs.readFileSync(audioFilePath));
+      totalDurationMs += meta.durationMs;
+    }
+  }
+
+  const combined = Buffer.concat(buffers);
+  const sanitizedTitle = (chapter.title || 'Chapter')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '_')
+    .substring(0, 50);
+  const chapNum = chapter.number ?? 1;
+  const filename = `Chapter_${chapNum}_${sanitizedTitle || 'Audio'}.mp3`;
+
+  return {
+    buffer: combined,
+    durationMs: totalDurationMs,
+    filename
+  };
 }

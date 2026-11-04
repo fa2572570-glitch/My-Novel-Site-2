@@ -5112,6 +5112,15 @@ export default function App() {
         sleepTimerRemainingSec={ttsState.sleepTimerRemainingSec}
         currentChapterIndex={ttsState.currentChapterIndex}
         currentTheme={currentTheme}
+        chapters={chapters}
+        novelId={bookTitle || 'novel'}
+        novelTitle={bookTitle || 'Web Novel'}
+        onPlayChapter={(idx) => {
+          setCurrentChapterIndex(idx);
+          if (chapters[idx]) {
+            ttsSeekToSentence(chapters[idx].id, idx, 0, 0);
+          }
+        }}
         onSetVoice={ttsSetVoice}
         onSetPitch={ttsSetPitch}
         onSetHighlightMode={ttsSetHighlightMode}

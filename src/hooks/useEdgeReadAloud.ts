@@ -9,6 +9,7 @@ import {
   EdgeReadAloudSettings,
   TTSCacheStats
 } from '../types/tts';
+import { getOfflineChapter } from '../utils/offlineAudioStorage';
 
 interface Chapter {
   id: string;
@@ -184,6 +185,11 @@ export function useEdgeReadAloud({
     const b = new Audio();
     a.preload = 'auto';
     b.preload = 'auto';
+    // Enable background playback and prevent mobile pause on screen lock
+    // @ts-ignore
+    a.playsInline = true;
+    // @ts-ignore
+    b.playsInline = true;
     a.volume = settingsRef.current.volume;
     b.volume = settingsRef.current.volume;
     
@@ -291,12 +297,22 @@ export function useEdgeReadAloud({
   // Update MediaSession on supported devices
   const updateMediaSession = useCallback((chapter: Chapter, isPlaying: boolean) => {
     if ('mediaSession' in navigator && chapter) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: chapter.title || `Chapter ${chapter.number}`,
-        artist: novelTitle,
-        album: `Edge Read Aloud (${settingsRef.current.voice})`
-      });
-      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+      try {
+        const cleanVoice = (settingsRef.current.voice || '')
+          .replace('en-US-', '')
+          .replace('en-GB-', '')
+          .replace('Neural', '');
+
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: chapter.title || `Chapter ${chapter.number}`,
+          artist: novelTitle || 'Novel Reader',
+          album: `Edge Read Aloud · ${cleanVoice}`,
+          artwork: [
+            { src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }
+          ]
+        });
+        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+      } catch (e) {}
     }
   }, [novelTitle]);
 
@@ -432,6 +448,59 @@ export function useEdgeReadAloud({
       return plansCacheRef.current.get(cacheKey)!;
     }
 
+    // 1. Check if chapter is saved offline in IndexedDB
+    try {
+      const offlineRecord = await getOfflineChapter(chapter.id);
+      if (offlineRecord && offlineRecord.chunks && offlineRecord.chunks.length > 0) {
+        const offlineChunks: TTSChunkPlan[] = offlineRecord.chunks.map(c => {
+          const blobUrl = URL.createObjectURL(c.audioBlob);
+          // Pre-populate chunksCacheRef so getChunkMetadata returns immediately with 0 network
+          chunksCacheRef.current.set(c.hash, {
+            chunkIndex: c.chunkIndex,
+            hash: c.hash,
+            audioUrl: blobUrl,
+            durationMs: c.durationMs,
+            paragraphStartIndex: 0,
+            paragraphEndIndex: 0,
+            sentences: c.sentences,
+            words: c.words
+          });
+
+          return {
+            chunkIndex: c.chunkIndex,
+            hash: c.hash,
+            text: c.sentences.map(s => s.text).join(' '),
+            paragraphStartIndex: 0,
+            paragraphEndIndex: 0,
+            sentences: c.sentences.map(s => ({
+              text: s.text,
+              paragraphIndex: s.paragraphIndex,
+              sentenceIndex: s.sentenceIndex
+            })),
+            isCached: true,
+            audioUrl: blobUrl,
+            voice: offlineRecord.voice,
+            pitch: offlineRecord.pitch
+          };
+        });
+
+        const offlinePlan: TTSChapterPlan = {
+          chapterId: offlineRecord.id,
+          chapterNumber: offlineRecord.chapterNumber,
+          title: offlineRecord.title,
+          voice: offlineRecord.voice,
+          totalChunks: offlineChunks.length,
+          chunks: offlineChunks
+        };
+
+        plansCacheRef.current.set(cacheKey, offlinePlan);
+        return offlinePlan;
+      }
+    } catch (err) {
+      console.warn('Error reading offline chapter in getChapterPlan:', err);
+    }
+
+    // 2. Fallback to online plan fetch
     const pitchStr = `${settingsRef.current.pitch >= 0 ? '+' : ''}${settingsRef.current.pitch}Hz`;
     const res = await fetch('/api/tts/plan', {
       method: 'POST',
@@ -466,7 +535,16 @@ export function useEdgeReadAloud({
     });
 
     if (!res.ok) {
-      throw new Error(`Failed to synthesize chunk: ${res.statusText}`);
+      let detailedMsg = res.statusText;
+      try {
+        const errorJson = await res.json();
+        if (errorJson && errorJson.error) {
+          detailedMsg = errorJson.error;
+        }
+      } catch {
+        // use fallback statusText
+      }
+      throw new Error(`Failed to synthesize chunk: ${detailedMsg || 'Server error'}`);
     }
 
     const meta: TTSChunkMetadata = await res.json();
@@ -634,6 +712,21 @@ export function useEdgeReadAloud({
             ) {
               scrollToSentence(chapId, foundSentence.paragraphIndex, foundSentence.sentenceIndex);
             }
+
+            // Sync MediaSession playback position for lock screen scrubber
+            if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+              try {
+                const dur = activeAudio.duration;
+                if (dur && !isNaN(dur) && isFinite(dur) && dur > 0) {
+                  const curTime = Math.min(dur, Math.max(0, activeAudio.currentTime));
+                  navigator.mediaSession.setPositionState({
+                    duration: dur,
+                    playbackRate: activeAudio.playbackRate || 1,
+                    position: curTime
+                  });
+                }
+              } catch (e) {}
+            }
           }
         }
       }
@@ -741,7 +834,11 @@ export function useEdgeReadAloud({
       }
 
       // Set audio source
-      if (activeAudio.src !== window.location.origin + meta.audioUrl && !activeAudio.src.endsWith(meta.audioUrl)) {
+      if (meta.audioUrl.startsWith('blob:')) {
+        if (activeAudio.src !== meta.audioUrl) {
+          activeAudio.src = meta.audioUrl;
+        }
+      } else if (activeAudio.src !== window.location.origin + meta.audioUrl && !activeAudio.src.endsWith(meta.audioUrl)) {
         activeAudio.src = meta.audioUrl;
       }
 
@@ -1305,6 +1402,31 @@ export function useEdgeReadAloud({
         navigator.mediaSession.setActionHandler('nexttrack', () => nextSentence());
         navigator.mediaSession.setActionHandler('previoustrack', () => prevSentence());
         navigator.mediaSession.setActionHandler('stop', () => stopReadAloud());
+
+        navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+          const skip = details.seekOffset || 15;
+          const activeAudio = activePlayerRef.current === 'A' ? audioARef.current : audioBRef.current;
+          if (activeAudio) {
+            activeAudio.currentTime = Math.max(0, activeAudio.currentTime - skip);
+          }
+        });
+
+        navigator.mediaSession.setActionHandler('seekforward', (details) => {
+          const skip = details.seekOffset || 15;
+          const activeAudio = activePlayerRef.current === 'A' ? audioARef.current : audioBRef.current;
+          if (activeAudio) {
+            activeAudio.currentTime = Math.min(activeAudio.duration || Infinity, activeAudio.currentTime + skip);
+          }
+        });
+
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+          if (details.seekTime !== undefined && details.seekTime !== null) {
+            const activeAudio = activePlayerRef.current === 'A' ? audioARef.current : audioBRef.current;
+            if (activeAudio) {
+              activeAudio.currentTime = details.seekTime;
+            }
+          }
+        });
       } catch (e) {}
     }
   }, [nextSentence, prevSentence, stopReadAloud, togglePlayPause]);
