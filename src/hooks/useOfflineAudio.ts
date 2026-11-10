@@ -146,7 +146,7 @@ export function useOfflineAudio(novelId: string = 'novel') {
         console.error('Cannot download empty audio blob');
         return;
       }
-      const safeFilename = filename.endsWith('.mp4') ? filename : `${filename}.mp4`;
+      const safeFilename = (filename.endsWith('.mp4') || filename.endsWith('.mp3')) ? filename : `${filename}.mp4`;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -518,11 +518,15 @@ export function useOfflineAudio(novelId: string = 'novel') {
             throw new DOMException('Aborted by user', 'AbortError');
           }
           const currentChap = currentBatch[cInBatch];
-          await downloadSingleChapter(currentChap, {
-            voice: options.voice,
-            pitch: options.pitch,
-            signal
-          });
+          try {
+            await downloadSingleChapter(currentChap, {
+              voice: options.voice,
+              pitch: options.pitch,
+              signal
+            });
+          } catch (dbErr) {
+            console.warn(`[useOfflineAudio] Could not cache chapter ${currentChap.id} in browser IndexedDB:`, dbErr);
+          }
         }
 
         if (signal.aborted) {

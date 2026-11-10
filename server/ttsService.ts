@@ -759,29 +759,43 @@ export async function exportChapterBundleMP4(
       .join('\n');
     fs.writeFileSync(manifestPath, manifestContent, 'utf8');
 
-    const tFfmpeg = Date.now();
-    await execFileAsync('ffmpeg', [
-      '-nostdin',
-      '-loglevel', 'warning',
-      '-y',
-      '-f', 'concat',
-      '-safe', '0',
-      '-i', manifestPath,
-      '-c:a', 'aac',
-      '-b:a', '128k',
-      '-movflags', '+faststart',
-      outputMp4Path
-    ], { timeout: 60000, maxBuffer: 50 * 1024 * 1024 });
+    let buffer: Buffer;
+    let isMp4 = false;
 
-    console.log(`[exportChapterBundleMP4] FFmpeg finished in ${Date.now() - tFfmpeg}ms.`);
+    // Attempt FFmpeg AAC MP4 encoding if ffmpeg binary is present on system
+    try {
+      const tFfmpeg = Date.now();
+      await execFileAsync('ffmpeg', [
+        '-nostdin',
+        '-loglevel', 'warning',
+        '-y',
+        '-f', 'concat',
+        '-safe', '0',
+        '-i', manifestPath,
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-movflags', '+faststart',
+        outputMp4Path
+      ], { timeout: 60000, maxBuffer: 50 * 1024 * 1024 });
 
-    if (!fs.existsSync(outputMp4Path)) {
-      throw new Error('FFmpeg failed to produce output MP4 file');
+      if (fs.existsSync(outputMp4Path)) {
+        buffer = fs.readFileSync(outputMp4Path);
+        isMp4 = true;
+        console.log(`[exportChapterBundleMP4] FFmpeg finished in ${Date.now() - tFfmpeg}ms.`);
+      } else {
+        throw new Error('FFmpeg output file missing');
+      }
+    } catch (ffmpegErr: any) {
+      console.warn(`[exportChapterBundleMP4] FFmpeg not found or failed (${ffmpegErr.message}). Falling back to seamless MP3 concatenation (Termux-compatible zero-dependency audio)...`);
+      // Seamless MP3 fallback: Concatenate all synthesized MP3 chunk files directly using Node Buffer.concat
+      const mp3Buffers = chunkFilePaths.map(fp => fs.readFileSync(fp));
+      buffer = Buffer.concat(mp3Buffers);
+      isMp4 = false;
+      console.log(`[exportChapterBundleMP4] Seamless MP3 bundle created successfully (${(buffer.length / (1024 * 1024)).toFixed(2)} MB).`);
     }
 
-    const buffer = fs.readFileSync(outputMp4Path);
-
-    // Generate clear, clean filename
+    // Generate clear, clean filename with matching extension (.mp4 or .mp3)
+    const ext = isMp4 ? 'mp4' : 'mp3';
     let filename: string;
     const sanitizedNovel = (options?.bundleTitle || 'Novel')
       .replace(/[^\w\s-]/g, '')
@@ -797,19 +811,19 @@ export async function exportChapterBundleMP4(
         .trim()
         .replace(/\s+/g, '_')
         .substring(0, 40);
-      filename = `Chapter_${chapNum}_${chapTitle || 'Audio'}.mp4`;
+      filename = `Chapter_${chapNum}_${chapTitle || 'Audio'}.${ext}`;
     } else {
       const firstNum = chapters[0].number ?? 1;
       const lastNum = chapters[chapters.length - 1].number ?? (firstNum + chapters.length - 1);
       const startPad = String(firstNum).padStart(3, '0');
       const endPad = String(lastNum).padStart(3, '0');
-      filename = `${sanitizedNovel || 'Chapters'}_${startPad}-${endPad}.mp4`;
+      filename = `${sanitizedNovel || 'Chapters'}_${startPad}-${endPad}.${ext}`;
     }
 
     // Save a copy in AUDIO_CACHE_DIR for direct download URL access
     try {
       const cachedFilePath = path.join(AUDIO_CACHE_DIR, filename);
-      fs.copyFileSync(outputMp4Path, cachedFilePath);
+      fs.writeFileSync(cachedFilePath, buffer);
     } catch (e) {
       // ignore cache copy errors
     }

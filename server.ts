@@ -501,7 +501,8 @@ async function startServer() {
         return;
       }
 
-      res.setHeader('Content-Type', 'video/mp4');
+      const isMp3 = filename.endsWith('.mp3');
+      res.setHeader('Content-Type', isMp3 ? 'audio/mpeg' : 'video/mp4');
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Type, Content-Length, X-Audio-Duration-Ms, X-Download-Url');
       res.setHeader('Content-Length', buffer.length);
@@ -518,7 +519,7 @@ async function startServer() {
     }
   });
 
-  // 9. Direct download endpoint for cached MP4 audio bundles
+  // 9. Direct download endpoint for cached MP4/MP3 audio bundles
   app.get('/api/tts/download/:filename', (req, res) => {
     const filename = path.basename(req.params.filename);
     const filePath = path.join(AUDIO_CACHE_DIR, filename);
@@ -528,7 +529,8 @@ async function startServer() {
     }
 
     const clientName = req.query.name ? path.basename(String(req.query.name)) : filename;
-    res.setHeader('Content-Type', 'video/mp4');
+    const isMp3 = clientName.endsWith('.mp3') || filename.endsWith('.mp3');
+    res.setHeader('Content-Type', isMp3 ? 'audio/mpeg' : 'video/mp4');
     res.setHeader('Content-Disposition', `attachment; filename="${clientName}"`);
     return res.sendFile(filePath);
   });

@@ -351,6 +351,16 @@ export function ChapterDownloadModal({
 
         {/* BOTTOM ACTION & LIVE DOWNLOAD PROGRESS */}
         <div className="pt-3 border-t border-white/10 flex-shrink-0 space-y-2.5">
+          {downloadProgress.error && !downloadProgress.isDownloading && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs flex items-start gap-2.5 animate-in fade-in duration-150">
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0 space-y-0.5">
+                <span className="font-bold text-rose-300 block">Download Error</span>
+                <p className="text-[11px] text-rose-200/90 break-words">{downloadProgress.error}</p>
+              </div>
+            </div>
+          )}
+
           {downloadProgress.isDownloading || (downloadProgress.percent === 100 && downloadProgress.statusText) ? (
             <div className={`p-4 rounded-xl space-y-3 animate-in fade-in duration-150 border ${
               downloadProgress.percent === 100
