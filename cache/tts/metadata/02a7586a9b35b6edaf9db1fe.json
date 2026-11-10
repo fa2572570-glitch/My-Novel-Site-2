@@ -1,0 +1,484 @@
+{
+  "chunkIndex": 0,
+  "hash": "02a7586a9b35b6edaf9db1fe",
+  "audioUrl": "/api/tts/audio/02a7586a9b35b6edaf9db1fe.mp3",
+  "durationMs": 21908,
+  "paragraphStartIndex": -1,
+  "paragraphEndIndex": 2,
+  "sentences": [
+    {
+      "text": "Chapter 5: Test Long Title for Batch Export",
+      "startMs": 0,
+      "durationMs": 3150,
+      "endMs": 3150,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Paragraph 1: The quick brown fox jumps over the lazy dog.",
+      "startMs": 3150,
+      "durationMs": 4415,
+      "endMs": 7565,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Continuous audio reading test.",
+      "startMs": 7565,
+      "durationMs": 2390,
+      "endMs": 9955,
+      "paragraphIndex": 0,
+      "sentenceIndex": 1
+    },
+    {
+      "text": "Paragraph 2: Section two containing several long sentences to test audio chunking performance.",
+      "startMs": 9955,
+      "durationMs": 6653,
+      "endMs": 16608,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Paragraph 3: Final sentence of this chapter chunk testing continuous playback speed.",
+      "startMs": 16608,
+      "durationMs": 5300,
+      "endMs": 21908,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0
+    }
+  ],
+  "words": [
+    {
+      "word": "Chapter",
+      "startMs": 100,
+      "durationMs": 838,
+      "endMs": 938,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "5",
+      "startMs": 100,
+      "durationMs": 838,
+      "endMs": 938,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "Test",
+      "startMs": 1300,
+      "durationMs": 338,
+      "endMs": 1638,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "Long",
+      "startMs": 1650,
+      "durationMs": 213,
+      "endMs": 1863,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "Title",
+      "startMs": 1875,
+      "durationMs": 338,
+      "endMs": 2213,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    },
+    {
+      "word": "for",
+      "startMs": 2225,
+      "durationMs": 138,
+      "endMs": 2363,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 5
+    },
+    {
+      "word": "Batch",
+      "startMs": 2375,
+      "durationMs": 325,
+      "endMs": 2700,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 6
+    },
+    {
+      "word": "Export",
+      "startMs": 2713,
+      "durationMs": 425,
+      "endMs": 3138,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 7
+    },
+    {
+      "word": "Paragraph",
+      "startMs": 3150,
+      "durationMs": 525,
+      "endMs": 3675,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "1",
+      "startMs": 3688,
+      "durationMs": 238,
+      "endMs": 3926,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "The",
+      "startMs": 4325,
+      "durationMs": 100,
+      "endMs": 4425,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "quick",
+      "startMs": 4438,
+      "durationMs": 275,
+      "endMs": 4713,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "brown",
+      "startMs": 4725,
+      "durationMs": 300,
+      "endMs": 5025,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    },
+    {
+      "word": "fox",
+      "startMs": 5038,
+      "durationMs": 363,
+      "endMs": 5401,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 5
+    },
+    {
+      "word": "jumps",
+      "startMs": 5413,
+      "durationMs": 363,
+      "endMs": 5776,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 6
+    },
+    {
+      "word": "over",
+      "startMs": 5800,
+      "durationMs": 188,
+      "endMs": 5988,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 7
+    },
+    {
+      "word": "the",
+      "startMs": 6000,
+      "durationMs": 100,
+      "endMs": 6100,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 8
+    },
+    {
+      "word": "lazy",
+      "startMs": 6113,
+      "durationMs": 338,
+      "endMs": 6451,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 9
+    },
+    {
+      "word": "dog",
+      "startMs": 6463,
+      "durationMs": 438,
+      "endMs": 6901,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 10
+    },
+    {
+      "word": "Continuous",
+      "startMs": 7565,
+      "durationMs": 613,
+      "endMs": 8178,
+      "paragraphIndex": 0,
+      "sentenceIndex": 1,
+      "wordIndex": 0
+    },
+    {
+      "word": "audio",
+      "startMs": 8190,
+      "durationMs": 350,
+      "endMs": 8540,
+      "paragraphIndex": 0,
+      "sentenceIndex": 1,
+      "wordIndex": 1
+    },
+    {
+      "word": "reading",
+      "startMs": 8553,
+      "durationMs": 250,
+      "endMs": 8803,
+      "paragraphIndex": 0,
+      "sentenceIndex": 1,
+      "wordIndex": 2
+    },
+    {
+      "word": "test",
+      "startMs": 8815,
+      "durationMs": 488,
+      "endMs": 9303,
+      "paragraphIndex": 0,
+      "sentenceIndex": 1,
+      "wordIndex": 3
+    },
+    {
+      "word": "Paragraph",
+      "startMs": 9955,
+      "durationMs": 575,
+      "endMs": 10530,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "2",
+      "startMs": 10543,
+      "durationMs": 313,
+      "endMs": 10856,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "Section",
+      "startMs": 11193,
+      "durationMs": 525,
+      "endMs": 11718,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "two",
+      "startMs": 11730,
+      "durationMs": 200,
+      "endMs": 11930,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "containing",
+      "startMs": 11943,
+      "durationMs": 500,
+      "endMs": 12443,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    },
+    {
+      "word": "several",
+      "startMs": 12455,
+      "durationMs": 400,
+      "endMs": 12855,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 5
+    },
+    {
+      "word": "long",
+      "startMs": 12868,
+      "durationMs": 288,
+      "endMs": 13156,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 6
+    },
+    {
+      "word": "sentences",
+      "startMs": 13168,
+      "durationMs": 638,
+      "endMs": 13806,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 7
+    },
+    {
+      "word": "to",
+      "startMs": 13818,
+      "durationMs": 100,
+      "endMs": 13918,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 8
+    },
+    {
+      "word": "test",
+      "startMs": 13930,
+      "durationMs": 400,
+      "endMs": 14330,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 9
+    },
+    {
+      "word": "audio",
+      "startMs": 14343,
+      "durationMs": 388,
+      "endMs": 14731,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 10
+    },
+    {
+      "word": "chunking",
+      "startMs": 14743,
+      "durationMs": 438,
+      "endMs": 15181,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 11
+    },
+    {
+      "word": "performance",
+      "startMs": 15193,
+      "durationMs": 750,
+      "endMs": 15943,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 12
+    },
+    {
+      "word": "Paragraph",
+      "startMs": 16608,
+      "durationMs": 550,
+      "endMs": 17158,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "3",
+      "startMs": 17170,
+      "durationMs": 388,
+      "endMs": 17558,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "Final",
+      "startMs": 17883,
+      "durationMs": 363,
+      "endMs": 18246,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "sentence",
+      "startMs": 18258,
+      "durationMs": 463,
+      "endMs": 18721,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "of",
+      "startMs": 18733,
+      "durationMs": 88,
+      "endMs": 18821,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    },
+    {
+      "word": "this",
+      "startMs": 18833,
+      "durationMs": 250,
+      "endMs": 19083,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 5
+    },
+    {
+      "word": "chapter",
+      "startMs": 19095,
+      "durationMs": 425,
+      "endMs": 19520,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 6
+    },
+    {
+      "word": "chunk",
+      "startMs": 19533,
+      "durationMs": 313,
+      "endMs": 19846,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 7
+    },
+    {
+      "word": "testing",
+      "startMs": 19858,
+      "durationMs": 413,
+      "endMs": 20271,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 8
+    },
+    {
+      "word": "continuous",
+      "startMs": 20283,
+      "durationMs": 613,
+      "endMs": 20896,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 9
+    },
+    {
+      "word": "playback",
+      "startMs": 20908,
+      "durationMs": 500,
+      "endMs": 21408,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 10
+    },
+    {
+      "word": "speed",
+      "startMs": 21420,
+      "durationMs": 488,
+      "endMs": 21908,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 11
+    }
+  ]
+}

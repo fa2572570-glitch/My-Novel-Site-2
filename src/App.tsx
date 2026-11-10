@@ -49,6 +49,9 @@ import { useEdgeReadAloud } from './hooks/useEdgeReadAloud';
 import { EdgeReadAloudBar } from './components/EdgeReadAloudBar';
 import { EdgeVoiceOptionsModal } from './components/EdgeVoiceOptionsModal';
 import { TTSRecenterFloatingButton } from './components/TTSRecenterFloatingButton';
+import { OfflineAudioAccordion } from './components/OfflineAudioAccordion';
+import { ChapterDownloadModal } from './components/ChapterDownloadModal';
+import { BackgroundDownloadPill } from './components/BackgroundDownloadPill';
 
 // Define Interface for Chapter
 interface Chapter {
@@ -388,6 +391,7 @@ export default function App() {
   const [highlightedParagraph, setHighlightedParagraph] = useState<{ chapterId: string; paragraphIndex: number } | null>(null);
   const [isDistractionFree, setIsDistractionFree] = useState(false);
   const [isReadingSettingsOpen, setIsReadingSettingsOpen] = useState(false);
+  const [isChapterDownloadModalOpen, setIsChapterDownloadModalOpen] = useState(false);
   const [isQuickNavOpen, setIsQuickNavOpen] = useState(false);
   const [quickNavSearch, setQuickNavSearch] = useState('');
 
@@ -4972,6 +4976,28 @@ export default function App() {
                 )}
               </div>
 
+              {/* SECTION 7: Audio Download */}
+              <div className="space-y-3 pt-1">
+                <span className="text-[11px] sm:text-xs font-black uppercase tracking-widest text-[#FF79B0] block">
+                  Audio Download
+                </span>
+                <OfflineAudioAccordion
+                  chapters={chapters}
+                  novelId={bookTitle || 'novel'}
+                  novelTitle={bookTitle || 'Web Novel'}
+                  voice={ttsSettings.voice}
+                  pitch={`${ttsSettings.pitch >= 0 ? '+' : ''}${ttsSettings.pitch}Hz`}
+                  onOpenDownloadModal={() => setIsChapterDownloadModalOpen(true)}
+                  onPlayChapter={(idx) => {
+                    setCurrentChapterIndex(idx);
+                    if (chapters[idx]) {
+                      ttsSeekToSentence(chapters[idx].id, idx, 0, 0);
+                    }
+                  }}
+                  onCloseSettings={() => handleSetReadingSettingsOpen(false)}
+                />
+              </div>
+
               {/* SECTION 8: Action Buttons (Save / Restore Profile Defaults) */}
               <div className="pt-5 border-t border-white/10 flex flex-col gap-3">
                 <button
@@ -5004,7 +5030,6 @@ export default function App() {
                   </button>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
@@ -5135,7 +5160,19 @@ export default function App() {
         onGetCacheStats={ttsGetCacheStats}
       />
 
-      {/* GLOBAL & PER-NOVEL TERMINOLOGY MANAGER MODAL WITH ERROR BOUNDARY */}
+      {/* CHAPTER DOWNLOAD MODAL (Continuous MP4 batch downloader) */}
+      <ChapterDownloadModal
+        isOpen={isChapterDownloadModalOpen}
+        onClose={() => setIsChapterDownloadModalOpen(false)}
+        chapters={chapters}
+        currentChapterIndex={currentChapterIndex}
+        novelId={bookTitle || 'novel'}
+        novelTitle={bookTitle || 'Web Novel'}
+        voice={ttsSettings.voice}
+        pitch={`${ttsSettings.pitch >= 0 ? '+' : ''}${ttsSettings.pitch}Hz`}
+      />
+
+      {/* TERMINOLOGY MANAGER MODAL WITH ERROR BOUNDARY */}
       <TerminologyErrorBoundary
         isOpen={isTerminologyModalOpen}
         onClose={() => setIsTerminologyModalOpen(false)}

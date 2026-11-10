@@ -1,0 +1,180 @@
+{
+  "chunkIndex": 0,
+  "hash": "fab4951ccfe37bbe1ab6b924",
+  "audioUrl": "/api/tts/audio/fab4951ccfe37bbe1ab6b924.mp3",
+  "durationMs": 6203,
+  "paragraphStartIndex": -1,
+  "paragraphEndIndex": 0,
+  "sentences": [
+    {
+      "text": "Entrance Exam",
+      "startMs": 0,
+      "durationMs": 988,
+      "endMs": 988,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "The young cultivator stepped onto the testing grounds.",
+      "startMs": 988,
+      "durationMs": 3302,
+      "endMs": 4290,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "The examination was about to begin.",
+      "startMs": 4290,
+      "durationMs": 1913,
+      "endMs": 6203,
+      "paragraphIndex": 0,
+      "sentenceIndex": 1
+    }
+  ],
+  "words": [
+    {
+      "word": "Entrance",
+      "startMs": 100,
+      "durationMs": 475,
+      "endMs": 575,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "Exam",
+      "startMs": 588,
+      "durationMs": 388,
+      "endMs": 976,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "The",
+      "startMs": 988,
+      "durationMs": 63,
+      "endMs": 1051,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "young",
+      "startMs": 1063,
+      "durationMs": 263,
+      "endMs": 1326,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "cultivator",
+      "startMs": 1338,
+      "durationMs": 588,
+      "endMs": 1926,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "stepped",
+      "startMs": 1938,
+      "durationMs": 325,
+      "endMs": 2263,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "onto",
+      "startMs": 2275,
+      "durationMs": 238,
+      "endMs": 2513,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    },
+    {
+      "word": "the",
+      "startMs": 2525,
+      "durationMs": 125,
+      "endMs": 2650,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 5
+    },
+    {
+      "word": "testing",
+      "startMs": 2663,
+      "durationMs": 363,
+      "endMs": 3026,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 6
+    },
+    {
+      "word": "grounds",
+      "startMs": 3038,
+      "durationMs": 600,
+      "endMs": 3638,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 7
+    },
+    {
+      "word": "The",
+      "startMs": 4290,
+      "durationMs": 88,
+      "endMs": 4378,
+      "paragraphIndex": 0,
+      "sentenceIndex": 1,
+      "wordIndex": 0
+    },
+    {
+      "word": "examination",
+      "startMs": 4390,
+      "durationMs": 800,
+      "endMs": 5190,
+      "paragraphIndex": 0,
+      "sentenceIndex": 1,
+      "wordIndex": 1
+    },
+    {
+      "word": "was",
+      "startMs": 5203,
+      "durationMs": 150,
+      "endMs": 5353,
+      "paragraphIndex": 0,
+      "sentenceIndex": 1,
+      "wordIndex": 2
+    },
+    {
+      "word": "about",
+      "startMs": 5365,
+      "durationMs": 275,
+      "endMs": 5640,
+      "paragraphIndex": 0,
+      "sentenceIndex": 1,
+      "wordIndex": 3
+    },
+    {
+      "word": "to",
+      "startMs": 5653,
+      "durationMs": 100,
+      "endMs": 5753,
+      "paragraphIndex": 0,
+      "sentenceIndex": 1,
+      "wordIndex": 4
+    },
+    {
+      "word": "begin",
+      "startMs": 5765,
+      "durationMs": 438,
+      "endMs": 6203,
+      "paragraphIndex": 0,
+      "sentenceIndex": 1,
+      "wordIndex": 5
+    }
+  ]
+}

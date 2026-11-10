@@ -1,0 +1,73 @@
+{
+  "chunkIndex": 0,
+  "hash": "78e611e44e36ae176d38f53d",
+  "audioUrl": "/api/tts/audio/78e611e44e36ae176d38f53d.mp3",
+  "durationMs": 2051,
+  "paragraphStartIndex": -1,
+  "paragraphEndIndex": 0,
+  "sentences": [
+    {
+      "text": "Chapter 2",
+      "startMs": 0,
+      "durationMs": 763,
+      "endMs": 763,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Second chapter text.",
+      "startMs": 763,
+      "durationMs": 1288,
+      "endMs": 2051,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0
+    }
+  ],
+  "words": [
+    {
+      "word": "Chapter",
+      "startMs": 100,
+      "durationMs": 650,
+      "endMs": 750,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "2",
+      "startMs": 100,
+      "durationMs": 650,
+      "endMs": 750,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "Second",
+      "startMs": 763,
+      "durationMs": 425,
+      "endMs": 1188,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "chapter",
+      "startMs": 1200,
+      "durationMs": 400,
+      "endMs": 1600,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "text",
+      "startMs": 1613,
+      "durationMs": 438,
+      "endMs": 2051,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    }
+  ]
+}

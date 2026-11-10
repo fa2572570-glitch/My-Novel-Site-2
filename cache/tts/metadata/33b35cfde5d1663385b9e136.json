@@ -1,0 +1,1256 @@
+{
+  "chunkIndex": 0,
+  "hash": "33b35cfde5d1663385b9e136",
+  "audioUrl": "/api/tts/audio/33b35cfde5d1663385b9e136.mp3",
+  "durationMs": 45838,
+  "paragraphStartIndex": -1,
+  "paragraphEndIndex": 5,
+  "sentences": [
+    {
+      "text": "Chapter 8: Long Story Test Title",
+      "startMs": 0,
+      "durationMs": 2500,
+      "endMs": 2500,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Paragraph 1: The quick brown fox jumps over the lazy dog and runs across the field under the bright blue sky.",
+      "startMs": 2500,
+      "durationMs": 7103,
+      "endMs": 9603,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Paragraph 2: The quick brown fox jumps over the lazy dog and runs across the field under the bright blue sky.",
+      "startMs": 9603,
+      "durationMs": 7290,
+      "endMs": 16893,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Paragraph 3: The quick brown fox jumps over the lazy dog and runs across the field under the bright blue sky.",
+      "startMs": 16893,
+      "durationMs": 7327,
+      "endMs": 24220,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Paragraph 4: The quick brown fox jumps over the lazy dog and runs across the field under the bright blue sky.",
+      "startMs": 24220,
+      "durationMs": 7340,
+      "endMs": 31560,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Paragraph 5: The quick brown fox jumps over the lazy dog and runs across the field under the bright blue sky.",
+      "startMs": 31560,
+      "durationMs": 7453,
+      "endMs": 39013,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Paragraph 6: The quick brown fox jumps over the lazy dog and runs across the field under the bright blue sky.",
+      "startMs": 39013,
+      "durationMs": 6825,
+      "endMs": 45838,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0
+    }
+  ],
+  "words": [
+    {
+      "word": "Chapter",
+      "startMs": 100,
+      "durationMs": 713,
+      "endMs": 813,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "8",
+      "startMs": 100,
+      "durationMs": 713,
+      "endMs": 813,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "Long",
+      "startMs": 1250,
+      "durationMs": 275,
+      "endMs": 1525,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "Story",
+      "startMs": 1538,
+      "durationMs": 363,
+      "endMs": 1901,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "Test",
+      "startMs": 1913,
+      "durationMs": 288,
+      "endMs": 2201,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    },
+    {
+      "word": "Title",
+      "startMs": 2213,
+      "durationMs": 275,
+      "endMs": 2488,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 5
+    },
+    {
+      "word": "Paragraph",
+      "startMs": 2500,
+      "durationMs": 550,
+      "endMs": 3050,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "1",
+      "startMs": 3063,
+      "durationMs": 238,
+      "endMs": 3301,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "The",
+      "startMs": 3725,
+      "durationMs": 100,
+      "endMs": 3825,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "quick",
+      "startMs": 3838,
+      "durationMs": 288,
+      "endMs": 4126,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "brown",
+      "startMs": 4138,
+      "durationMs": 300,
+      "endMs": 4438,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    },
+    {
+      "word": "fox",
+      "startMs": 4450,
+      "durationMs": 363,
+      "endMs": 4813,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 5
+    },
+    {
+      "word": "jumps",
+      "startMs": 4825,
+      "durationMs": 375,
+      "endMs": 5200,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 6
+    },
+    {
+      "word": "over",
+      "startMs": 5225,
+      "durationMs": 188,
+      "endMs": 5413,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 7
+    },
+    {
+      "word": "the",
+      "startMs": 5425,
+      "durationMs": 100,
+      "endMs": 5525,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 8
+    },
+    {
+      "word": "lazy",
+      "startMs": 5538,
+      "durationMs": 350,
+      "endMs": 5888,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 9
+    },
+    {
+      "word": "dog",
+      "startMs": 5900,
+      "durationMs": 375,
+      "endMs": 6275,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 10
+    },
+    {
+      "word": "and",
+      "startMs": 6313,
+      "durationMs": 150,
+      "endMs": 6463,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 11
+    },
+    {
+      "word": "runs",
+      "startMs": 6475,
+      "durationMs": 263,
+      "endMs": 6738,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 12
+    },
+    {
+      "word": "across",
+      "startMs": 6750,
+      "durationMs": 375,
+      "endMs": 7125,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 13
+    },
+    {
+      "word": "the",
+      "startMs": 7138,
+      "durationMs": 100,
+      "endMs": 7238,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 14
+    },
+    {
+      "word": "field",
+      "startMs": 7250,
+      "durationMs": 363,
+      "endMs": 7613,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 15
+    },
+    {
+      "word": "under",
+      "startMs": 7625,
+      "durationMs": 163,
+      "endMs": 7788,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 16
+    },
+    {
+      "word": "the",
+      "startMs": 7800,
+      "durationMs": 100,
+      "endMs": 7900,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 17
+    },
+    {
+      "word": "bright",
+      "startMs": 7913,
+      "durationMs": 263,
+      "endMs": 8176,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 18
+    },
+    {
+      "word": "blue",
+      "startMs": 8188,
+      "durationMs": 213,
+      "endMs": 8401,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 19
+    },
+    {
+      "word": "sky",
+      "startMs": 8413,
+      "durationMs": 538,
+      "endMs": 8951,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 20
+    },
+    {
+      "word": "Paragraph",
+      "startMs": 9603,
+      "durationMs": 575,
+      "endMs": 10178,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "2",
+      "startMs": 10190,
+      "durationMs": 288,
+      "endMs": 10478,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "The",
+      "startMs": 10878,
+      "durationMs": 100,
+      "endMs": 10978,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "quick",
+      "startMs": 10990,
+      "durationMs": 300,
+      "endMs": 11290,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "brown",
+      "startMs": 11303,
+      "durationMs": 313,
+      "endMs": 11616,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    },
+    {
+      "word": "fox",
+      "startMs": 11628,
+      "durationMs": 375,
+      "endMs": 12003,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 5
+    },
+    {
+      "word": "jumps",
+      "startMs": 12015,
+      "durationMs": 363,
+      "endMs": 12378,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 6
+    },
+    {
+      "word": "over",
+      "startMs": 12403,
+      "durationMs": 200,
+      "endMs": 12603,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 7
+    },
+    {
+      "word": "the",
+      "startMs": 12615,
+      "durationMs": 113,
+      "endMs": 12728,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 8
+    },
+    {
+      "word": "lazy",
+      "startMs": 12740,
+      "durationMs": 350,
+      "endMs": 13090,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 9
+    },
+    {
+      "word": "dog",
+      "startMs": 13103,
+      "durationMs": 388,
+      "endMs": 13491,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 10
+    },
+    {
+      "word": "and",
+      "startMs": 13603,
+      "durationMs": 138,
+      "endMs": 13741,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 11
+    },
+    {
+      "word": "runs",
+      "startMs": 13753,
+      "durationMs": 288,
+      "endMs": 14041,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 12
+    },
+    {
+      "word": "across",
+      "startMs": 14053,
+      "durationMs": 375,
+      "endMs": 14428,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 13
+    },
+    {
+      "word": "the",
+      "startMs": 14440,
+      "durationMs": 113,
+      "endMs": 14553,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 14
+    },
+    {
+      "word": "field",
+      "startMs": 14565,
+      "durationMs": 350,
+      "endMs": 14915,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 15
+    },
+    {
+      "word": "under",
+      "startMs": 14928,
+      "durationMs": 150,
+      "endMs": 15078,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 16
+    },
+    {
+      "word": "the",
+      "startMs": 15090,
+      "durationMs": 113,
+      "endMs": 15203,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 17
+    },
+    {
+      "word": "bright",
+      "startMs": 15215,
+      "durationMs": 263,
+      "endMs": 15478,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 18
+    },
+    {
+      "word": "blue",
+      "startMs": 15490,
+      "durationMs": 200,
+      "endMs": 15690,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 19
+    },
+    {
+      "word": "sky",
+      "startMs": 15703,
+      "durationMs": 538,
+      "endMs": 16241,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 20
+    },
+    {
+      "word": "Paragraph",
+      "startMs": 16893,
+      "durationMs": 538,
+      "endMs": 17431,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "3",
+      "startMs": 17443,
+      "durationMs": 325,
+      "endMs": 17768,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "The",
+      "startMs": 18205,
+      "durationMs": 113,
+      "endMs": 18318,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "quick",
+      "startMs": 18330,
+      "durationMs": 288,
+      "endMs": 18618,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "brown",
+      "startMs": 18630,
+      "durationMs": 300,
+      "endMs": 18930,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    },
+    {
+      "word": "fox",
+      "startMs": 18943,
+      "durationMs": 375,
+      "endMs": 19318,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 5
+    },
+    {
+      "word": "jumps",
+      "startMs": 19330,
+      "durationMs": 375,
+      "endMs": 19705,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 6
+    },
+    {
+      "word": "over",
+      "startMs": 19730,
+      "durationMs": 200,
+      "endMs": 19930,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 7
+    },
+    {
+      "word": "the",
+      "startMs": 19943,
+      "durationMs": 113,
+      "endMs": 20056,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 8
+    },
+    {
+      "word": "lazy",
+      "startMs": 20068,
+      "durationMs": 350,
+      "endMs": 20418,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 9
+    },
+    {
+      "word": "dog",
+      "startMs": 20430,
+      "durationMs": 388,
+      "endMs": 20818,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 10
+    },
+    {
+      "word": "and",
+      "startMs": 20918,
+      "durationMs": 150,
+      "endMs": 21068,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 11
+    },
+    {
+      "word": "runs",
+      "startMs": 21080,
+      "durationMs": 263,
+      "endMs": 21343,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 12
+    },
+    {
+      "word": "across",
+      "startMs": 21355,
+      "durationMs": 375,
+      "endMs": 21730,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 13
+    },
+    {
+      "word": "the",
+      "startMs": 21743,
+      "durationMs": 113,
+      "endMs": 21856,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 14
+    },
+    {
+      "word": "field",
+      "startMs": 21868,
+      "durationMs": 363,
+      "endMs": 22231,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 15
+    },
+    {
+      "word": "under",
+      "startMs": 22243,
+      "durationMs": 150,
+      "endMs": 22393,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 16
+    },
+    {
+      "word": "the",
+      "startMs": 22405,
+      "durationMs": 113,
+      "endMs": 22518,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 17
+    },
+    {
+      "word": "bright",
+      "startMs": 22530,
+      "durationMs": 263,
+      "endMs": 22793,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 18
+    },
+    {
+      "word": "blue",
+      "startMs": 22805,
+      "durationMs": 213,
+      "endMs": 23018,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 19
+    },
+    {
+      "word": "sky",
+      "startMs": 23030,
+      "durationMs": 538,
+      "endMs": 23568,
+      "paragraphIndex": 2,
+      "sentenceIndex": 0,
+      "wordIndex": 20
+    },
+    {
+      "word": "Paragraph",
+      "startMs": 24220,
+      "durationMs": 550,
+      "endMs": 24770,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "4",
+      "startMs": 24783,
+      "durationMs": 300,
+      "endMs": 25083,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "The",
+      "startMs": 25495,
+      "durationMs": 100,
+      "endMs": 25595,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "quick",
+      "startMs": 25608,
+      "durationMs": 288,
+      "endMs": 25896,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "brown",
+      "startMs": 25908,
+      "durationMs": 300,
+      "endMs": 26208,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    },
+    {
+      "word": "fox",
+      "startMs": 26220,
+      "durationMs": 375,
+      "endMs": 26595,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 5
+    },
+    {
+      "word": "jumps",
+      "startMs": 26608,
+      "durationMs": 388,
+      "endMs": 26996,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 6
+    },
+    {
+      "word": "over",
+      "startMs": 27020,
+      "durationMs": 188,
+      "endMs": 27208,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 7
+    },
+    {
+      "word": "the",
+      "startMs": 27220,
+      "durationMs": 113,
+      "endMs": 27333,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 8
+    },
+    {
+      "word": "lazy",
+      "startMs": 27345,
+      "durationMs": 350,
+      "endMs": 27695,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 9
+    },
+    {
+      "word": "dog",
+      "startMs": 27708,
+      "durationMs": 388,
+      "endMs": 28096,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 10
+    },
+    {
+      "word": "and",
+      "startMs": 28208,
+      "durationMs": 150,
+      "endMs": 28358,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 11
+    },
+    {
+      "word": "runs",
+      "startMs": 28370,
+      "durationMs": 275,
+      "endMs": 28645,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 12
+    },
+    {
+      "word": "across",
+      "startMs": 28658,
+      "durationMs": 375,
+      "endMs": 29033,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 13
+    },
+    {
+      "word": "the",
+      "startMs": 29045,
+      "durationMs": 100,
+      "endMs": 29145,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 14
+    },
+    {
+      "word": "field",
+      "startMs": 29158,
+      "durationMs": 363,
+      "endMs": 29521,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 15
+    },
+    {
+      "word": "under",
+      "startMs": 29533,
+      "durationMs": 163,
+      "endMs": 29696,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 16
+    },
+    {
+      "word": "the",
+      "startMs": 29708,
+      "durationMs": 113,
+      "endMs": 29821,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 17
+    },
+    {
+      "word": "bright",
+      "startMs": 29833,
+      "durationMs": 288,
+      "endMs": 30121,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 18
+    },
+    {
+      "word": "blue",
+      "startMs": 30133,
+      "durationMs": 213,
+      "endMs": 30346,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 19
+    },
+    {
+      "word": "sky",
+      "startMs": 30358,
+      "durationMs": 550,
+      "endMs": 30908,
+      "paragraphIndex": 3,
+      "sentenceIndex": 0,
+      "wordIndex": 20
+    },
+    {
+      "word": "Paragraph",
+      "startMs": 31560,
+      "durationMs": 538,
+      "endMs": 32098,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "5",
+      "startMs": 32110,
+      "durationMs": 400,
+      "endMs": 32510,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "The",
+      "startMs": 32985,
+      "durationMs": 100,
+      "endMs": 33085,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "quick",
+      "startMs": 33098,
+      "durationMs": 300,
+      "endMs": 33398,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "brown",
+      "startMs": 33410,
+      "durationMs": 300,
+      "endMs": 33710,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    },
+    {
+      "word": "fox",
+      "startMs": 33723,
+      "durationMs": 375,
+      "endMs": 34098,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 5
+    },
+    {
+      "word": "jumps",
+      "startMs": 34110,
+      "durationMs": 388,
+      "endMs": 34498,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 6
+    },
+    {
+      "word": "over",
+      "startMs": 34523,
+      "durationMs": 188,
+      "endMs": 34711,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 7
+    },
+    {
+      "word": "the",
+      "startMs": 34723,
+      "durationMs": 113,
+      "endMs": 34836,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 8
+    },
+    {
+      "word": "lazy",
+      "startMs": 34848,
+      "durationMs": 338,
+      "endMs": 35186,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 9
+    },
+    {
+      "word": "dog",
+      "startMs": 35198,
+      "durationMs": 388,
+      "endMs": 35586,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 10
+    },
+    {
+      "word": "and",
+      "startMs": 35685,
+      "durationMs": 150,
+      "endMs": 35835,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 11
+    },
+    {
+      "word": "runs",
+      "startMs": 35848,
+      "durationMs": 275,
+      "endMs": 36123,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 12
+    },
+    {
+      "word": "across",
+      "startMs": 36135,
+      "durationMs": 375,
+      "endMs": 36510,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 13
+    },
+    {
+      "word": "the",
+      "startMs": 36523,
+      "durationMs": 113,
+      "endMs": 36636,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 14
+    },
+    {
+      "word": "field",
+      "startMs": 36648,
+      "durationMs": 363,
+      "endMs": 37011,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 15
+    },
+    {
+      "word": "under",
+      "startMs": 37023,
+      "durationMs": 163,
+      "endMs": 37186,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 16
+    },
+    {
+      "word": "the",
+      "startMs": 37198,
+      "durationMs": 113,
+      "endMs": 37311,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 17
+    },
+    {
+      "word": "bright",
+      "startMs": 37323,
+      "durationMs": 263,
+      "endMs": 37586,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 18
+    },
+    {
+      "word": "blue",
+      "startMs": 37598,
+      "durationMs": 213,
+      "endMs": 37811,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 19
+    },
+    {
+      "word": "sky",
+      "startMs": 37823,
+      "durationMs": 538,
+      "endMs": 38361,
+      "paragraphIndex": 4,
+      "sentenceIndex": 0,
+      "wordIndex": 20
+    },
+    {
+      "word": "Paragraph",
+      "startMs": 39013,
+      "durationMs": 513,
+      "endMs": 39526,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "6",
+      "startMs": 39538,
+      "durationMs": 475,
+      "endMs": 40013,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "The",
+      "startMs": 40413,
+      "durationMs": 100,
+      "endMs": 40513,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "quick",
+      "startMs": 40525,
+      "durationMs": 288,
+      "endMs": 40813,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "brown",
+      "startMs": 40825,
+      "durationMs": 313,
+      "endMs": 41138,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    },
+    {
+      "word": "fox",
+      "startMs": 41150,
+      "durationMs": 375,
+      "endMs": 41525,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 5
+    },
+    {
+      "word": "jumps",
+      "startMs": 41538,
+      "durationMs": 388,
+      "endMs": 41926,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 6
+    },
+    {
+      "word": "over",
+      "startMs": 41963,
+      "durationMs": 188,
+      "endMs": 42151,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 7
+    },
+    {
+      "word": "the",
+      "startMs": 42163,
+      "durationMs": 100,
+      "endMs": 42263,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 8
+    },
+    {
+      "word": "lazy",
+      "startMs": 42275,
+      "durationMs": 350,
+      "endMs": 42625,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 9
+    },
+    {
+      "word": "dog",
+      "startMs": 42638,
+      "durationMs": 388,
+      "endMs": 43026,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 10
+    },
+    {
+      "word": "and",
+      "startMs": 43163,
+      "durationMs": 138,
+      "endMs": 43301,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 11
+    },
+    {
+      "word": "runs",
+      "startMs": 43313,
+      "durationMs": 275,
+      "endMs": 43588,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 12
+    },
+    {
+      "word": "across",
+      "startMs": 43600,
+      "durationMs": 375,
+      "endMs": 43975,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 13
+    },
+    {
+      "word": "the",
+      "startMs": 43988,
+      "durationMs": 113,
+      "endMs": 44101,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 14
+    },
+    {
+      "word": "field",
+      "startMs": 44113,
+      "durationMs": 363,
+      "endMs": 44476,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 15
+    },
+    {
+      "word": "under",
+      "startMs": 44488,
+      "durationMs": 163,
+      "endMs": 44651,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 16
+    },
+    {
+      "word": "the",
+      "startMs": 44663,
+      "durationMs": 113,
+      "endMs": 44776,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 17
+    },
+    {
+      "word": "bright",
+      "startMs": 44788,
+      "durationMs": 275,
+      "endMs": 45063,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 18
+    },
+    {
+      "word": "blue",
+      "startMs": 45075,
+      "durationMs": 213,
+      "endMs": 45288,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 19
+    },
+    {
+      "word": "sky",
+      "startMs": 45300,
+      "durationMs": 538,
+      "endMs": 45838,
+      "paragraphIndex": 5,
+      "sentenceIndex": 0,
+      "wordIndex": 20
+    }
+  ]
+}

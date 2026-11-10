@@ -1,8 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 import { splitParagraphIntoSentences, tokenizeSentenceWords } from '../src/utils/ttsText';
+
+const execFileAsync = promisify(execFile);
 
 // STRICT VOICE MANDATE: All TTS requests must use this voice without substitution.
 export const EDGE_TTS_VOICE = 'en-US-SteffanNeural';
@@ -148,22 +152,20 @@ export function planChapterChunks(
   });
 
   if (allSentences.length === 0) {
-    return {
-      chapterId: chapter.id,
-      chapterNumber: chapter.number,
-      title: chapter.title || 'Untitled',
-      voice: selectedVoice,
-      totalChunks: 0,
-      chunks: []
-    };
+    allSentences.push({
+      text: chapter.title || `Chapter ${chapter.number || 1}`,
+      paragraphIndex: -1,
+      sentenceIndex: 0
+    });
   }
 
   let currentChunkSentences: SentenceRef[] = [];
   let currentChunkCharCount = 0;
   let chunkIdx = 0;
 
-  // First chunk has a smaller char cap (600-800) so initial playback starts in <1 second
-  const getTargetCharLimit = (idx: number) => (idx === 0 ? 750 : 1250);
+  // Target char limit: smaller initial chunk (550 chars) for instant playback, 850 chars for subsequent chunks
+  // to ensure synthesis completes reliably in 6-10s without WebSocket stream timeouts
+  const getTargetCharLimit = (idx: number) => (idx === 0 ? 550 : 850);
 
   for (let i = 0; i < allSentences.length; i++) {
     const sentence = allSentences[i];
@@ -302,7 +304,7 @@ export async function synthesizeChunk(
       let res: { audioFilePath: string; metadataFilePath: string | null } | null = null;
       let lastError: any = null;
 
-      for (let attempt = 1; attempt <= 2; attempt++) {
+      for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           if (!tts) {
             tts = new MsEdgeTTS({ connectionTimeoutMs: 15000 });
@@ -311,7 +313,12 @@ export async function synthesizeChunk(
               sentenceBoundaryEnabled: true
             });
           }
-          res = await tts.toFile(tempDir, safeText, { pitch });
+          const timeoutMs = Math.max(45000, Math.ceil(safeText.length * 50));
+          const toFilePromise = tts.toFile(tempDir, safeText, { pitch });
+          const timeoutPromise = new Promise<{ audioFilePath: string; metadataFilePath: string | null }>((_, reject) => {
+            setTimeout(() => reject(new Error(`Edge TTS toFile timed out for chunk ${hash} after ${timeoutMs}ms`)), timeoutMs);
+          });
+          res = await Promise.race([toFilePromise, timeoutPromise]);
           if (res?.audioFilePath && fs.existsSync(res.audioFilePath) && fs.statSync(res.audioFilePath).size > 0) {
             break;
           }
@@ -322,8 +329,8 @@ export async function synthesizeChunk(
             try { tts.close(); } catch {}
             tts = null;
           }
-          if (attempt < 2) {
-            await new Promise(r => setTimeout(r, 400));
+          if (attempt < 3) {
+            await new Promise(r => setTimeout(r, 600));
           }
         }
       }
@@ -667,3 +674,159 @@ export async function getOrSynthesizeChapterAudioBuffers(
     filename
   };
 }
+
+// Export one or more chapters into a single continuous MP4 audio file using FFmpeg AAC
+export async function exportChapterBundleMP4(
+  chapters: Array<{ id: string; number?: number; title: string; content: string[] }>,
+  novelId: string = 'novel',
+  options?: { voice?: string; pitch?: string; bundleTitle?: string },
+  checkAborted?: () => boolean
+): Promise<{ buffer: Buffer; durationMs: number; filename: string }> {
+  if (!chapters || chapters.length === 0) {
+    throw new Error('At least one chapter is required to export audio bundle');
+  }
+
+  const chunkFilePaths: string[] = [];
+  let totalDurationMs = 0;
+
+  interface FlattenedChunk {
+    chunk: ReturnType<typeof planChapterChunks>['chunks'][0];
+  }
+  const allChunks: FlattenedChunk[] = [];
+  for (const chapter of chapters) {
+    if (checkAborted?.()) {
+      throw new Error('Operation aborted by client');
+    }
+    const plan = planChapterChunks(chapter, novelId, options);
+    for (const chunk of plan.chunks) {
+      allChunks.push({ chunk });
+    }
+  }
+
+  console.log(`[exportChapterBundleMP4] Starting for ${chapters.length} chapters (${allChunks.length} chunks total)...`);
+
+  // Synthesize chunks with safe concurrency pool of 2 to avoid Edge TTS WebSocket throttling
+  const concurrency = 2;
+  const chunkResults: Array<{ hash: string; durationMs: number }> = new Array(allChunks.length);
+
+  for (let i = 0; i < allChunks.length; i += concurrency) {
+    if (checkAborted?.()) {
+      throw new Error('Operation aborted by client');
+    }
+    const slice = allChunks.slice(i, i + concurrency);
+    const results = await Promise.all(
+      slice.map(item => synthesizeChunk(item.chunk))
+    );
+    for (let j = 0; j < results.length; j++) {
+      const meta = results[j];
+      chunkResults[i + j] = { hash: meta.hash, durationMs: meta.durationMs };
+    }
+  }
+
+  for (const item of chunkResults) {
+    if (!item) continue;
+    const audioFilePath = path.join(AUDIO_CACHE_DIR, `${item.hash}.mp3`);
+    if (fs.existsSync(audioFilePath)) {
+      chunkFilePaths.push(audioFilePath);
+      totalDurationMs += item.durationMs;
+    }
+  }
+
+  console.log(`[exportChapterBundleMP4] Chunks ready: ${chunkFilePaths.length}/${allChunks.length}. Running FFmpeg...`);
+
+  if (checkAborted?.()) {
+    throw new Error('Operation aborted by client');
+  }
+
+  if (chunkFilePaths.length === 0) {
+    throw new Error('No audio chunks could be generated for the requested chapters');
+  }
+
+  // Create temporary workspace for FFmpeg concat manifest
+  const tempDir = path.join(CACHE_ROOT, 'temp', `bundle_${crypto.randomBytes(8).toString('hex')}`);
+  fs.mkdirSync(tempDir, { recursive: true });
+  const manifestPath = path.join(tempDir, 'concat_list.txt');
+  const outputMp4Path = path.join(tempDir, 'output.mp4');
+
+  try {
+    if (checkAborted?.()) {
+      throw new Error('Operation aborted by client');
+    }
+
+    // Write concat file
+    const manifestContent = chunkFilePaths
+      .map(fp => `file '${fp.replace(/'/g, "'\\''")}'`)
+      .join('\n');
+    fs.writeFileSync(manifestPath, manifestContent, 'utf8');
+
+    const tFfmpeg = Date.now();
+    await execFileAsync('ffmpeg', [
+      '-nostdin',
+      '-loglevel', 'warning',
+      '-y',
+      '-f', 'concat',
+      '-safe', '0',
+      '-i', manifestPath,
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-movflags', '+faststart',
+      outputMp4Path
+    ], { timeout: 60000, maxBuffer: 50 * 1024 * 1024 });
+
+    console.log(`[exportChapterBundleMP4] FFmpeg finished in ${Date.now() - tFfmpeg}ms.`);
+
+    if (!fs.existsSync(outputMp4Path)) {
+      throw new Error('FFmpeg failed to produce output MP4 file');
+    }
+
+    const buffer = fs.readFileSync(outputMp4Path);
+
+    // Generate clear, clean filename
+    let filename: string;
+    const sanitizedNovel = (options?.bundleTitle || 'Novel')
+      .replace(/[^\w\s-]/g, '')
+      .trim()
+      .replace(/\s+/g, '_')
+      .substring(0, 30);
+
+    if (chapters.length === 1) {
+      const chap = chapters[0];
+      const chapNum = chap.number ?? 1;
+      const chapTitle = (chap.title || 'Chapter')
+        .replace(/[^\w\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '_')
+        .substring(0, 40);
+      filename = `Chapter_${chapNum}_${chapTitle || 'Audio'}.mp4`;
+    } else {
+      const firstNum = chapters[0].number ?? 1;
+      const lastNum = chapters[chapters.length - 1].number ?? (firstNum + chapters.length - 1);
+      const startPad = String(firstNum).padStart(3, '0');
+      const endPad = String(lastNum).padStart(3, '0');
+      filename = `${sanitizedNovel || 'Chapters'}_${startPad}-${endPad}.mp4`;
+    }
+
+    // Save a copy in AUDIO_CACHE_DIR for direct download URL access
+    try {
+      const cachedFilePath = path.join(AUDIO_CACHE_DIR, filename);
+      fs.copyFileSync(outputMp4Path, cachedFilePath);
+    } catch (e) {
+      // ignore cache copy errors
+    }
+
+    return {
+      buffer,
+      durationMs: totalDurationMs,
+      filename
+    };
+  } finally {
+    try {
+      if (fs.existsSync(tempDir)) {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    } catch (e) {
+      // ignore cleanup errors
+    }
+  }
+}
+

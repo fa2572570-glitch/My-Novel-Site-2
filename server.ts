@@ -12,14 +12,16 @@ import {
   preloadChunks,
   getTTSCacheStats,
   clearTTSCache,
-  getOrSynthesizeChapterAudioBuffers
+  getOrSynthesizeChapterAudioBuffers,
+  exportChapterBundleMP4
 } from './server/ttsService';
 
 const isProd = process.env.NODE_ENV === 'production';
 
 async function startServer() {
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // Helper to generate range of URLs
   function getUrlsInRange(startUrl: string, endUrl: string): { url: string; index: number }[] {
@@ -464,6 +466,71 @@ async function startServer() {
       console.error('Error in /api/tts/export-chapter-mp3:', error);
       return res.status(500).json({ error: error.message || 'Failed to export chapter MP3' });
     }
+  });
+
+  // 8. Export Continuous MP4 Audio for a single chapter or bundle of chapters
+  app.post('/api/tts/export-bundle-mp4', async (req, res) => {
+    let isClientAborted = false;
+    req.on('aborted', () => {
+      isClientAborted = true;
+    });
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        isClientAborted = true;
+      }
+    });
+
+    try {
+      const { chapters, novelId, voice, pitch, bundleTitle } = req.body;
+      if (!Array.isArray(chapters) || chapters.length === 0) {
+        return res.status(400).json({ error: 'Array of chapters with id, title, and content is required' });
+      }
+
+      console.log(`[API /export-bundle-mp4] Starting export for ${chapters.length} chapters (${bundleTitle || 'Novel'})`);
+
+      const { buffer, durationMs, filename } = await exportChapterBundleMP4(
+        chapters,
+        novelId || 'novel',
+        { voice, pitch, bundleTitle },
+        () => isClientAborted
+      );
+
+      if (isClientAborted || res.writableEnded) {
+        console.log('[API /export-bundle-mp4] Client aborted before response was sent');
+        if (!res.writableEnded) res.end();
+        return;
+      }
+
+      res.setHeader('Content-Type', 'video/mp4');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition, Content-Type, Content-Length, X-Audio-Duration-Ms, X-Download-Url');
+      res.setHeader('Content-Length', buffer.length);
+      res.setHeader('X-Audio-Duration-Ms', durationMs.toString());
+      res.setHeader('X-Download-Url', `/api/tts/download/${encodeURIComponent(filename)}`);
+      return res.send(buffer);
+    } catch (error: any) {
+      if (isClientAborted || res.writableEnded) {
+        if (!res.writableEnded) res.end();
+        return;
+      }
+      console.error('Error in /api/tts/export-bundle-mp4:', error);
+      return res.status(500).json({ error: error.message || 'Failed to export bundle MP4' });
+    }
+  });
+
+  // 9. Direct download endpoint for cached MP4 audio bundles
+  app.get('/api/tts/download/:filename', (req, res) => {
+    const filename = path.basename(req.params.filename);
+    const filePath = path.join(AUDIO_CACHE_DIR, filename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Audio file not found' });
+    }
+
+    const clientName = req.query.name ? path.basename(String(req.query.name)) : filename;
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Disposition', `attachment; filename="${clientName}"`);
+    return res.sendFile(filePath);
   });
 
   // Serve static assets / Vite

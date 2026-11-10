@@ -1,210 +1,218 @@
-# Offline Audio Chapter Downloads & Screen-Off Background Player
+# Offline Audio Chapter Downloads & Continuous MP4 Batch Bundler
 
-Add an offline audio chapter system integrated directly into a new **"Offline Audio"** space inside the **Voice Options Modal** (`EdgeVoiceOptionsModal`). Readers can download single chapters or custom chapter ranges with their chosen Edge voice and speed, enjoy seamless screen-off background playback when device screens are locked, listen offline with synchronized sentence/word highlighting, manage offline storage, and export MP3 files directly to device storage.
+Revise the offline audio downloader to replace abstract number inputs with an interactive **Chapter Selection List** (modeled directly on the *Quick Chapter Navigator* layout from the user screenshot), add **Continuous Multi-Chapter Batch Merging** (e.g. selecting 50 chapters with a 10-chapter continuous option to download 5 continuous files instead of 50 individual files), output files in **MP4 format instead of MP3**, and locate the feature in **Reading Settings** in a clean, discoverable accordion ("hidden but not too much hidden").
 
 ---
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following revisions have been incorporated per your request:
-> - **Unified in Voice Options Modal**: All offline features (single chapter download, range selector, offline library manager, and MP3 exporter) will be housed in a new dedicated **"Offline Audio" tab** within the existing Voice Options modal (`EdgeVoiceOptionsModal`), keeping voice selection, playback speed, and offline controls consolidated in one clean hub.
-> - **Screen-Off / Background Playback**: The audio player will support continuous playback when the phone or device screen is locked or turned off. This is achieved via comprehensive `navigator.mediaSession` integration, background audio keepalive, gapless chunk/chapter pre-buffering, and lock-screen media controls.
-> - **Full Text Highlighting Synchronization**: When playing downloaded offline chapters in-app, 60fps word-by-word and sentence-by-sentence text tracking and tap-to-seek remain active with zero network requests.
-> - **Flexible Chapter Selection**: Supports downloading the current chapter, custom chapter ranges (e.g., Chapters 1 to 20), or quick presets ("Next 5 chapters", "Next 10 chapters").
-> - **Device MP3 Export**: Users can export single consolidated `.mp3` files per chapter directly to device storage.
+> The following revisions have been incorporated from your latest request and screenshot:
+> - **Interactive Chapter Selection List (Quick Chapter Navigator Reference)**:
+>   - Replaces abstract range numbers (1 to 10) with an interactive chapter picker matching the styling and layout of the attached *Quick Chapter Navigator* screenshot.
+>   - Displays all chapters available in the novel with filter search (`Filter chapters...`), individual checkboxes, and quick bulk toggles (*Select All*, *Select Next 10*, *Select Next 50*, *Deselect*).
+> - **Continuous Multi-Chapter Batch Downloads (e.g. 50 chapters $\rightarrow$ 5 files)**:
+>   - Adds a **"Continuous Download / Merge into Bundles"** toggle.
+>   - When enabled, allows setting the batch size (default: **10 chapters per file**, with options for 5, 10, 20, or custom).
+>   - **Automatic Batch Grouping**: Selecting 50 chapters with batch size 10 generates exactly **5 continuous downloaded files** instead of 50 individual files.
+> - **MP4 Format Instead of MP3**:
+>   - Downloads are exported as MPEG-4 (`.mp4`) audio files encoded with AAC and `+faststart` metadata using server-side FFmpeg.
+>   - Universal playback compatibility across smartphones, car audio systems (CarPlay / Android Auto), and standalone media players.
+> - **Location in Reading Settings ("Hidden but not too much hidden")**:
+>   - Positioned inside the main **Reading Settings** modal as an expandable card titled **"Offline Audio & Chapter Downloads"**.
+>   - Completely removed from the Voice Options modal to keep voice settings lightweight and focused.
+> - **Screen-Off Background Playback**:
+>   - Retains continuous background playback when the device screen is locked or turned off, with full lock-screen media session controls (`navigator.mediaSession`).
 
 ---
 
 ## 1. Overview & Core Concept
 
 ### What It Delivers
-1. **Dedicated "Offline Audio" Space in Voice Options**:
-   - In `EdgeVoiceOptionsModal`, a new tab labeled **"Offline Audio"** (with `<DownloadCloud>` icon) sits alongside Voice, Display, and Timer.
-   - Contains two organized sections:
-     - **Download New Chapters**: Scope selector (Current chapter, Custom range, Next 5/10), chosen voice indicator, file size estimate, and real-time progress bar.
-     - **Offline Audio Library**: List of downloaded chapters, duration, size, instant Play button, direct "Export MP3" button, and storage cleaner.
-2. **Screen-Off Background Playback**:
-   - When the user turns off or locks their phone screen, playback continues uninterrupted across chunks and chapter boundaries.
-   - Lock screen displays chapter title, novel name, chosen voice narrator, progress scrubber, and media controls (Play/Pause, Next Chapter, Previous Chapter, Seek 15s).
-3. **In-App Offline Synchronization**:
-   - Downloaded chapters store both audio blobs and sentence/word timing metadata in browser IndexedDB.
-   - Reading along offline provides the exact same rich experience: karaoke sentence highlighting, word tracking, and smooth autoscroll.
-4. **Direct MP3 File Download**:
-   - 1-click download saves a standard playable `.mp3` file directly to the device for use in external media apps, car audio, or smart watches.
+1. **Visual Chapter Picker (Modeled on Quick Chapter Navigator)**:
+   - When the user taps **"Download Chapters"** inside Settings, a selection interface opens matching the layout of the user's screenshot:
+     - Header: Chapter count summary (e.g. `14 selected of 50`).
+     - Search bar: `Filter chapters...` with instant keyword filtering.
+     - Chapter rows: `📖 Chapter X: Title` + paragraph counts (`78 paras`) with custom selection checkboxes.
+2. **Continuous Multi-Chapter Bundling**:
+   - Rather than flooding the device downloads folder with 50 small files, the user enables **Continuous Download** and sets a bundle threshold (e.g. 10 chapters).
+   - The engine automatically chunks and merges consecutive chapters:
+     - `Bundle 1`: Chapters 1 to 10 $\rightarrow$ `Novel_Title_Ch001-010.mp4`
+     - `Bundle 2`: Chapters 11 to 20 $\rightarrow$ `Novel_Title_Ch011-020.mp4`
+     - `Bundle 3`: Chapters 21 to 30 $\rightarrow$ `Novel_Title_Ch021-030.mp4`
+     - `Bundle 4`: Chapters 31 to 40 $\rightarrow$ `Novel_Title_Ch031-040.mp4`
+     - `Bundle 5`: Chapters 41 to 50 $\rightarrow$ `Novel_Title_Ch041-050.mp4`
+3. **MPEG-4 (.mp4) Audio Encoding**:
+   - Synthesized Edge TTS audio is stitched and encoded into `.mp4` containers via FFmpeg with standard AAC audio and fast-start headers for instant mobile seeking.
+4. **In-App Offline Synchronization**:
+   - Downloaded chapters are also indexed into browser IndexedDB storage so readers can listen offline inside the app with synchronized sentence and word highlighting.
 
 ---
 
 ## 2. User Experience & Visual Design
 
-### Location & Layout in Voice Options Modal
+### 1. The Settings Accordion Card (Reading Settings Dialog)
+- Located in Section 6/7 of Reading Settings.
+- **Collapsed**:
+  - Icon: `<DownloadCloud className="w-5 h-5 text-[#FF79B0]" />`
+  - Title: **"Offline Audio & Downloads"**
+  - Subtitle: *"Download continuous chapter MP4s for offline & screen-off listening"*
+  - Badge: `Storage: 24.5 MB · 12 chapters cached`
+  - Chevron: `<ChevronDown />`
+- **Expanded**:
+  - Quick action buttons: **"Select & Download Chapters"** (opens chapter selector), and **"Manage Stored Audio"** (opens offline library).
 
-Inside `EdgeVoiceOptionsModal.tsx`, the tab navigation expands to include:
-- `Voice` (Narrator selection & pitch)
-- `Offline Audio` (✨ **New Dedicated Space**: Download range, Offline Library, MP3 export)
-- `Display` (Sentence/word highlighting styles, autoscroll)
-- `Timer` (Sleep timer presets)
-- `Cache` (Server disk cache stats)
+### 2. Chapter Selector Dialog (Screenshot Reference Design)
+Matching the dark aesthetic (`#16181D` surface, `#FF79B0` accent, `border-white/15`):
+- **Header**:
+  - Title: `Download Audio Chapters`
+  - Counter badge: `${selectedIds.length} of ${chapters.length} Selected`
+  - Close button `(X)`
+- **Search & Quick Toggles**:
+  - Search input: `<Search />` with placeholder `Filter chapters...`
+  - Quick pill buttons:
+    - `Select All`
+    - `Next 10`
+    - `Next 50`
+    - `Deselect All`
+- **Continuous Download Configuration Card**:
+  - Toggle: **"Continuous Multi-Chapter Download"** (Enabled by default).
+  - Continuous Batch Size selector:
+    - Preset buttons: `[ 5 Ch / File ]` `[ 10 Ch / File ]` `[ 20 Ch / File ]` `[ 25 Ch / File ]`
+    - Custom number input: `Chapters per MP4 file: [ 10 ]`
+  - **Dynamic Output Summary**:
+    - Clearly shows calculated file count:
+      - *"50 chapters selected $\rightarrow$ **5 MP4 files** (10 chapters per file), ~90 MB total"*
+      - *"Format: MPEG-4 Audio (.mp4) · Narrator: Steffan (Natural)"*
+- **Scrollable Chapter Items List** (from screenshot):
+  - Each item:
+    - Checkbox with pink checkmark on active state.
+    - Chapter label: `📖 Chapter 177: Auction [6]`
+    - Paragraph badge: `78 paras`
+    - Currently reading indicator if applicable.
+- **Sticky Bottom Action Bar**:
+  - Summary: `${selectedIds.length} Chapters selected (${totalFiles} MP4 file${totalFiles > 1 ? 's' : ''})`
+  - Download Button: `<Download className="w-4 h-4" /> Download ${totalFiles} Continuous MP4 File${totalFiles > 1 ? 's' : ''}`
 
-#### Inside the "Offline Audio" Tab:
-1. **Download New Audio Section**:
-   - **Voice Indicator**: Shows the active voice (`en-US-SteffanNeural`) with a note: *"Audio will be synthesized with your selected voice"*.
-   - **Scope Selector Segmented Buttons**:
-     - `Current Chapter (Ch. X)`
-     - `Next 5 Chapters`
-     - `Next 10 Chapters`
-     - `Custom Range` (Number inputs: `From Chapter [X]` to `To Chapter [Y]`)
-   - **Download Estimation**: Estimated storage (e.g. `~1.8 MB per chapter`) and total chapters count.
-   - **Action Buttons**:
-     - `Download to In-App Library` (for offline synced reading)
-     - `Export MP3 to Device` (direct file download)
-   - **Live Progress Card**: Displays during download with progress percentage, active chapter name, chunk status, and a `Cancel` button.
-
-2. **Downloaded Library Section**:
-   - **Storage Meter**: Shows disk footprint (e.g., `42.5 MB stored · 8 chapters`) with a `Clear All` button.
-   - **Chapter Cards List**:
-     - Chapter number and title.
-     - Metadata line: `12 min · 2.1 MB · Steffan · Downloaded 2h ago`.
-     - Actions: `▶ Play Now`, `⬇ MP3`, and `🗑 Delete`.
-
-### Screen-Off Lock Screen Player UX
-- Lock screen displays rich media metadata:
-  - **Title**: `Chapter 14: The Hidden Chamber`
-  - **Artist / Narrator**: `Steffan (Natural) · Edge Read Aloud`
-  - **Album**: Novel Book Title
-  - **Artwork**: Stylized book cover artwork
-- Controls:
-  - Play / Pause toggle
-  - Skip Forward 15s / Skip Backward 15s
-  - Next Chapter / Previous Chapter
-  - Interactive lock-screen timeline scrubber
-
----
-
-## 3. Screen-Off Playback Architecture & Technical Safeguards
-
-Mobile operating systems (iOS WebKit and Android Chrome) aggressively freeze JavaScript execution within 5–15 seconds of the screen locking unless media playback is continuously active.
-
-### Safeguards Implemented for Screen-Off Continuity:
-1. **Continuous Audio Pipeline (Zero-Gap Handoff)**:
-   - When Chunk A is nearing completion, Chunk B is pre-buffered on the standby `<audio>` element.
-   - The audio transition executes without pausing: the active player transitions instantly, preventing the browser from interpreting a momentary silence as an idle session.
-2. **Audio Element Optimization**:
-   - HTML5 `<audio>` tags are configured with `playsInline={true}`, `preload="auto"`, and persistent DOM mounting.
-3. **Full `navigator.mediaSession` Implementation**:
-   - Action handlers registered for:
-     - `play`, `pause`
-     - `previoustrack`, `nexttrack` (triggers chapter jump)
-     - `seekbackward`, `seekforward` (jumps 10–15 seconds)
-     - `seekto` (jumps to exact position on lock-screen scrubber)
-     - `stop`
-   - Explicitly update `navigator.mediaSession.playbackState = 'playing'` or `'paused'`.
-   - Update `setPositionState({ duration, playbackRate, position })` at regular intervals to keep the lock screen progress bar synced.
+### 3. Active Download & Synthesis Progress Modal
+- Live chapter and batch progress:
+  - Overall progress bar: `File 2 of 5: Chapters 11–20 (45%)`
+  - Real-time synthesis status: `Synthesizing Chapter 14: The Hidden Chamber (chunk 3 of 6)...`
+  - Cancel button to abort gracefully.
 
 ---
 
-## 4. Technical Architecture & Data Strategy
+## 3. Technical Architecture & Data Strategy
 
-### System Component Diagram
+### System Architecture Diagram
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        Voice Options Modal                             │
-│                     (EdgeVoiceOptionsModal.tsx)                        │
+│                        User Interface Layer                            │
 │                                                                        │
-│  ┌───────────┐  ┌────────────────────────────────────┐  ┌───────────┐  │
-│  │ Voice Tab │  │  ★ Offline Audio Tab (New Space)   │  │ Timer Tab │  │
-│  └───────────┘  └─────────────────┬──────────────────┘  └───────────┘  │
-│                                   │                                    │
-│           ┌───────────────────────┴───────────────────────┐             │
-│           ▼                                               ▼             │
-│  ┌──────────────────────────────┐        ┌───────────────────────────┐ │
-│  │   Chapter Downloader Card    │        │  Downloaded Audio Library │ │
-│  │ (Current / Range / Presets)  │        │ (Play / Export MP3 / Del) │ │
-│  └──────────────┬───────────────┘        └─────────────┬─────────────┘ │
-└─────────────────┼──────────────────────────────────────┼───────────────┘
-                  │                                      │
-                  ▼                                      ▼
+│  ┌──────────────────────────────────┐  ┌────────────────────────────┐  │
+│  │ ReadingSettings (Accordion Card) │  │  VoiceOptionsModal         │  │
+│  │   "Offline Audio & Downloads"    │  │  (Offline tab removed)     │  │
+│  └──────────────────┬───────────────┘  └────────────────────────────┘  │
+│                     │                                                  │
+│                     ▼ Taps "Download Chapters"                         │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │          ChapterDownloadModal (Screenshot Reference UI)          │  │
+│  │  • Search filter & quick selectors (All, Next 10, Next 50)       │  │
+│  │  • Multi-select checkboxes matching Quick Chapter Navigator      │  │
+│  │  • Continuous Download Toggle & Batch Size (e.g. 10 Ch / File)   │  │
+│  │  • Output Preview: "50 chapters selected -> 5 MP4 files"         │  │
+│  └──────────────────┬───────────────────────────────────────────────┘  │
+└─────────────────────┼──────────────────────────────────────────────────┘
+                      │
+                      ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                 Client-Side Storage (IndexedDB Engine)                 │
-│                      (src/utils/offlineAudioStorage.ts)                │
+│                  Client Controller (useOfflineAudio Hook)              │
 │                                                                        │
-│   DB: 'novel_audio_offline_db'  |  Store: 'chapters'                   │
-│   Record: {                                                            │
-│     id: chapterId, chapterNumber, title, voice, pitch,                 │
-│     audioBlob: Blob, durationMs, sizeBytes, downloadedAt,              │
-│     sentences: TTSSentenceTiming[], words: TTSWordTiming[]             │
-│   }                                                                    │
-└─────────────────────────────────┬──────────────────────────────────────┘
-                                  │
-                                  ▼
+│   • Groups selected chapters into batches of N (e.g. [1..10], [11..20])│
+│   • Calls /api/tts/export-bundle-mp4 for each continuous batch         │
+│   • Stores chapters and timing metadata in IndexedDB for offline sync │
+│   • Triggers automatic browser file download for each .mp4 file        │
+└─────────────────────┬──────────────────────────────────────────────────┘
+                      │
+                      ▼
 ┌────────────────────────────────────────────────────────────────────────┐
-│                 Edge Read Aloud Engine & Screen-Off                    │
-│                     (src/hooks/useEdgeReadAloud.ts)                    │
+│                  Server / Express Route & FFmpeg Engine                │
 │                                                                        │
-│   • Offline Detection: Checks IndexedDB before network fetch           │
-│   • Plays Blob URL via URL.createObjectURL(record.audioBlob)          │
-│   • Dual-Player Gapless Audio Buffer (No session release)             │
-│   • navigator.mediaSession continuous lock-screen state & actions      │
-└─────────────────────────────────┬──────────────────────────────────────┘
-                                  │
-                                  ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                      Server Endpoint Additions                         │
-│                           (server.ts)                                  │
-│                                                                        │
-│   • POST /api/tts/export-mp3  (Stitches chunk audio into single MP3)   │
+│   • POST /api/tts/export-bundle-mp4                                    │
+│       1. Synthesizes/retrieves audio chunks for all chapters in batch  │
+│       2. Uses /usr/bin/ffmpeg to concatenate audio streams             │
+│       3. Encodes to MP4 container (AAC codec, -movflags +faststart)   │
+│       4. Streams response as 'video/mp4' / 'audio/mp4' attachment      │
+│          Filename: "NovelTitle_Chapters_001-010.mp4"                   │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Module Responsibilities:
+### FFmpeg Continuous MP4 Concatenation Pipeline
+For a batch of chapters (e.g., Chapters 1 to 10):
+1. The server ensures all chunk audio files are synthesized and cached on disk.
+2. Generates an FFmpeg concat manifest file listing all chapter chunk files in order:
+   ```text
+   file '/cache/tts/audio/chunk_1.mp3'
+   file '/cache/tts/audio/chunk_2.mp3'
+   ...
+   ```
+3. Executes FFmpeg command:
+   ```bash
+   ffmpeg -f concat -safe 0 -i concat_list.txt -c:a aac -b:a 128k -movflags +faststart output.mp4
+   ```
+4. Streams `output.mp4` directly to client with `Content-Type: video/mp4` and `Content-Disposition: attachment; filename="Novel_Chapters_001-010.mp4"`.
+5. Cleans up temporary manifest and temporary MP4 file.
 
-1. **`src/utils/offlineAudioStorage.ts`**:
-   - Zero-dependency browser IndexedDB database manager.
-   - Operations: `saveOfflineChapter`, `getOfflineChapter`, `getAllOfflineChapters`, `deleteOfflineChapter`, `getStorageUsage`.
+---
 
-2. **`src/hooks/useOfflineAudio.ts`**:
-   - Manages download queue, chunk synthesis, progress percent calculation, and direct MP3 file trigger.
-   - Exposes `downloadChapter(chapter, voice)`, `downloadRange(startIndex, endIndex, voice)`, `exportMP3(chapterId)`.
+## 4. Implementation Steps
 
-3. **`src/components/EdgeVoiceOptionsModal.tsx`**:
-   - Integrates the new **"Offline Audio"** tab.
-   - Renders download controls, range inputs, active download progress bar, and local offline audio library with MP3 export buttons.
-
-4. **`src/hooks/useEdgeReadAloud.ts`**:
-   - Offline playback interceptor: if a chapter is downloaded, plays instantly from IndexedDB Blob without network.
-   - Full MediaSession action registration and lock-screen synchronization for screen-off playback.
-   - Gapless standby player pre-buffering to keep the background audio thread alive when the phone is locked.
-
-5. **`server.ts` & `server/ttsService.ts`**:
-   - Single-chapter consolidated MP3 streaming route `/api/tts/export-mp3` for instant direct download to device storage.
+1. **Remove Offline Tab from `EdgeVoiceOptionsModal.tsx`**:
+   - Revert tab set to `'voice' | 'display' | 'timer' | 'cache'`.
+   - Remove unused offline UI code from the voice options modal.
+2. **Server-side Continuous MP4 Bundler (`server.ts` & `server/ttsService.ts`)**:
+   - Implement `exportChapterBundleMP4(chapters, novelId, voice, pitch)`:
+     - Pre-synthesizes all chunks for the chapters.
+     - Uses `ffmpeg` to concatenate and encode into a single `.mp4` file.
+   - Register route `POST /api/tts/export-bundle-mp4`.
+3. **Build `ChapterDownloadModal.tsx` (Component based on Screenshot UI)**:
+   - Full chapter picker with search filter, individual checkboxes, Select All, and Next 10/50 pills.
+   - Continuous download toggle with batch size input (default: 10 chapters per file).
+   - Dynamic calculation and display of output files (e.g. 50 chapters $\rightarrow$ 5 MP4 files).
+4. **Build `OfflineAudioAccordion.tsx` (Inside Reading Settings)**:
+   - Collapsible card placed in Reading Settings Section 6/7.
+   - Shows storage usage and a trigger button to open the `ChapterDownloadModal` and manage saved audio.
+5. **Update `useOfflineAudio.ts`**:
+   - Add `downloadContinuousMP4Batches(selectedChapters, batchSize, options)`:
+     - Slices selected chapters into batches of `batchSize` (e.g., 10).
+     - Downloads each continuous `.mp4` file sequentially with live progress feedback.
+     - Indexes chapter records in IndexedDB for synchronized in-app offline playback.
 
 ---
 
 ## Verification Plan
 
 ### Automated & Build Verification
-1. **Compilation Check**: Run `compile_applet` to ensure full TypeScript typing and build pass.
-2. **Lint Validation**: Run `lint_applet` to verify zero errors or broken imports.
+1. **Compilation Check**: Co-execute `compile_applet` and `lint_applet` to confirm zero build and TypeScript errors.
+2. **FFmpeg Validation**: Verify FFmpeg generates valid `.mp4` files from synthesized audio streams.
 
 ### Manual & Feature Verification
-1. **Voice Options Modal Navigation**:
-   - Open Voice Options modal and click the new **"Offline Audio"** tab.
-   - Verify layout is clean, legible, and adheres to dark theme styling.
-2. **Current Chapter & Range Download**:
-   - Download the current chapter with active voice; verify real-time progress bar.
-   - Test custom range (e.g., Chapters 1 to 3) and verify all chapters download and appear in the offline list.
-3. **In-App Offline Playback & Sync**:
-   - Simulate offline mode / disable network.
-   - Click "Play" on a downloaded chapter from the Voice Options modal or reader bar.
-   - Confirm audio plays immediately and sentence/word highlighting moves in lockstep.
-   - Change speed (1.25x, 1.5x) and verify speed changes smoothly without pitch distortion.
-4. **Screen-Off Background Playback**:
-   - Start playback, lock device screen (or minimize browser tab).
-   - Verify audio continues playing across sentences and auto-advances to the next chapter.
-   - Verify lock screen shows chapter title, novel name, voice name, and playable scrubber controls.
-5. **Direct MP3 Export**:
-   - Click "Export MP3" for a chapter.
-   - Verify browser triggers download of a single `.mp3` file that plays in native audio apps.
-6. **Storage Cleanup**:
-   - Delete an individual chapter and test "Clear All Offline Audio" to verify storage counter updates to 0 bytes.
+1. **Chapter Selector Verification**:
+   - Open Reading Settings, expand the Offline Audio card, and click **"Download Chapters"**.
+   - Verify the chapter list modal matches the layout of the screenshot with chapter title, paragraph count, and selection checkboxes.
+   - Verify filter search works smoothly (`Filter chapters...`).
+   - Test "Select Next 10" and "Select All" buttons.
+2. **Continuous Multi-Chapter MP4 Bundling (50 $\rightarrow$ 5 Files)**:
+   - Select 50 chapters, enable continuous download with batch size = 10.
+   - Verify UI explicitly displays: *"50 chapters selected $\rightarrow$ 5 MP4 files (10 chapters per file)"*.
+   - Click Download; verify each continuous batch of 10 chapters is synthesized and downloaded as `.mp4` files:
+     - `Chapters_001-010.mp4`
+     - `Chapters_011-020.mp4`
+     - etc.
+3. **MP4 Audio Playback Verification**:
+   - Open downloaded `.mp4` files in native media player; confirm audio is continuous, clear, and chapters transition without gaps.
+4. **Voice Options Modal Verification**:
+   - Open Voice Options modal; confirm the offline audio tab is removed and the original 4 tabs remain clean and intact.
+5. **Screen-Off & In-App Offline Playback**:
+   - Confirm downloaded chapters remain playable inside the app with text highlighting sync and screen-off lock screen media controls.

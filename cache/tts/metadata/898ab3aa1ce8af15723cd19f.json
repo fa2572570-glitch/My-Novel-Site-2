@@ -1,0 +1,153 @@
+{
+  "chunkIndex": 0,
+  "hash": "898ab3aa1ce8af15723cd19f",
+  "audioUrl": "/api/tts/audio/898ab3aa1ce8af15723cd19f.mp3",
+  "durationMs": 5678,
+  "paragraphStartIndex": -1,
+  "paragraphEndIndex": 1,
+  "sentences": [
+    {
+      "text": "Test Chapter 1",
+      "startMs": 0,
+      "durationMs": 1875,
+      "endMs": 1875,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Paragraph 1 text for test.",
+      "startMs": 1875,
+      "durationMs": 2365,
+      "endMs": 4240,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Paragraph 2 text for test.",
+      "startMs": 4240,
+      "durationMs": 1438,
+      "endMs": 5678,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0
+    }
+  ],
+  "words": [
+    {
+      "word": "Test",
+      "startMs": 100,
+      "durationMs": 338,
+      "endMs": 438,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "Chapter",
+      "startMs": 450,
+      "durationMs": 613,
+      "endMs": 1063,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "1",
+      "startMs": 1675,
+      "durationMs": 188,
+      "endMs": 1863,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "Paragraph",
+      "startMs": 1875,
+      "durationMs": 313,
+      "endMs": 2188,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "1",
+      "startMs": 2200,
+      "durationMs": 100,
+      "endMs": 2300,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "text",
+      "startMs": 2313,
+      "durationMs": 463,
+      "endMs": 2776,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "for",
+      "startMs": 3428,
+      "durationMs": 600,
+      "endMs": 4028,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "test",
+      "startMs": 4040,
+      "durationMs": 188,
+      "endMs": 4228,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    },
+    {
+      "word": "Paragraph",
+      "startMs": 4240,
+      "durationMs": 325,
+      "endMs": 4565,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "2",
+      "startMs": 4578,
+      "durationMs": 113,
+      "endMs": 4691,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "text",
+      "startMs": 4703,
+      "durationMs": 475,
+      "endMs": 5178,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "for",
+      "startMs": 5178,
+      "durationMs": 250,
+      "endMs": 5428,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 3
+    },
+    {
+      "word": "test",
+      "startMs": 5428,
+      "durationMs": 250,
+      "endMs": 5678,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 4
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "chunkIndex": 0,
+  "hash": "a04b1652c738490994de8cc5",
+  "audioUrl": "/api/tts/audio/a04b1652c738490994de8cc5.mp3",
+  "durationMs": 3766,
+  "paragraphStartIndex": -1,
+  "paragraphEndIndex": 1,
+  "sentences": [
+    {
+      "text": "Test Title",
+      "startMs": 0,
+      "durationMs": 725,
+      "endMs": 725,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Sentence 1 text.",
+      "startMs": 725,
+      "durationMs": 1853,
+      "endMs": 2578,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0
+    },
+    {
+      "text": "Sentence 2 text.",
+      "startMs": 2578,
+      "durationMs": 1188,
+      "endMs": 3766,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0
+    }
+  ],
+  "words": [
+    {
+      "word": "Test",
+      "startMs": 100,
+      "durationMs": 338,
+      "endMs": 438,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "Title",
+      "startMs": 450,
+      "durationMs": 263,
+      "endMs": 713,
+      "paragraphIndex": -1,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "Sentence",
+      "startMs": 725,
+      "durationMs": 463,
+      "endMs": 1188,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "1",
+      "startMs": 1200,
+      "durationMs": 225,
+      "endMs": 1425,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "text",
+      "startMs": 1438,
+      "durationMs": 475,
+      "endMs": 1913,
+      "paragraphIndex": 0,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    },
+    {
+      "word": "Sentence",
+      "startMs": 2578,
+      "durationMs": 513,
+      "endMs": 3091,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 0
+    },
+    {
+      "word": "2",
+      "startMs": 3103,
+      "durationMs": 163,
+      "endMs": 3266,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 1
+    },
+    {
+      "word": "text",
+      "startMs": 3278,
+      "durationMs": 488,
+      "endMs": 3766,
+      "paragraphIndex": 1,
+      "sentenceIndex": 0,
+      "wordIndex": 2
+    }
+  ]
+}

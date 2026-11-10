@@ -1,6 +1,6 @@
 {
-  "summary": "Revised implementation plan: integrates the offline audio downloader, library manager, and MP3 export directly into a dedicated 'Offline Audio' tab inside the Voice Options modal, and adds comprehensive screen-off background playback support via MediaSession, gapless chunk pre-buffering, and audio keepalive.",
-  "updatedAt": "2026-11-04T15:35:44.148572790Z",
-  "requestFeedback": true,
-  "userFacing": true
+  "summary":  "Revised implementation plan incorporating user screenshot reference: interactive chapter selector list (like Quick Chapter Navigator), continuous multi-chapter batch merging (e.g. 50 chapters merged into 5 files of 10 chapters each), and MP4 format export via FFmpeg.",
+  "updatedAt":  "2026-11-08T14:47:05.593258561Z",
+  "requestFeedback":  true,
+  "userFacing":  true
 }
